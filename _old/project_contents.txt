@@ -1,0 +1,1854 @@
+Project Structure:
+./clean.py
+./collages.csv
+./collages_with_titles.csv
+./kinoscraper.py
+./make_collages.py
+./movies.csv
+./movies_clean.csv
+./pins.csv
+./pins.py
+./pins.xlsx
+./pins_for_collage.py
+./tags.py
+collages/�����_01.jpg
+collages/�����_02.jpg
+collages/�����_03.jpg
+collages/�����_04.jpg
+collages/������_01.jpg
+collages/������_02.jpg
+collages/��������_01.jpg
+collages/��������������_01.jpg
+collages/��������������_02.jpg
+collages/��������������_03.jpg
+collages/��������������_04.jpg
+collages/��������������_05.jpg
+collages/�����_01.jpg
+collages/�����_02.jpg
+collages/�����_03.jpg
+collages/�����_04.jpg
+collages/�����_05.jpg
+collages/�����_06.jpg
+collages/�����_07.jpg
+collages/�����_08.jpg
+collages/�����_09.jpg
+collages/�����_10.jpg
+collages/�����_11.jpg
+collages/�����_12.jpg
+collages/�����_13.jpg
+collages/�������_01.jpg
+collages/�������_02.jpg
+collages/�������_03.jpg
+collages/�������_04.jpg
+collages/���������_01.jpg
+collages/���������_02.jpg
+collages/���������_03.jpg
+collages/���������_04.jpg
+collages/���������_05.jpg
+collages/����������_01.jpg
+collages/����������_02.jpg
+collages/�������_01.jpg
+collages/�������_02.jpg
+collages/�������_03.jpg
+collages/�������_04.jpg
+collages/�������_05.jpg
+posters/1040427.jpg
+posters/1399213.jpg
+posters/1403073.jpg
+posters/2003391.jpg
+posters/4294117.jpg
+posters/4407678.jpg
+posters/4745679.jpg
+posters/4747934.jpg
+posters/4779112.jpg
+posters/4909266.jpg
+posters/4923658.jpg
+posters/5004943.jpg
+posters/5024491.jpg
+posters/5051286.jpg
+posters/5051546.jpg
+posters/5052569.jpg
+posters/5101852.jpg
+posters/5126208.jpg
+posters/5135252.jpg
+posters/5200263.jpg
+posters/5212316.jpg
+posters/5235272.jpg
+posters/5249707.jpg
+posters/5262369.jpg
+posters/5265041.jpg
+posters/5280944.jpg
+posters/5286718.jpg
+posters/5318770.jpg
+posters/5320155.jpg
+posters/5365825.jpg
+posters/5368141.jpg
+posters/5407776.jpg
+posters/5408295.jpg
+posters/5411677.jpg
+posters/5415937.jpg
+posters/5419025.jpg
+posters/5420655.jpg
+posters/5428072.jpg
+posters/5428790.jpg
+posters/5445458.jpg
+posters/5445460.jpg
+posters/5447089.jpg
+posters/5448371.jpg
+posters/5451179.jpg
+posters/5452438.jpg
+posters/5453487.jpg
+posters/5455004.jpg
+posters/5455268.jpg
+posters/5457359.jpg
+posters/5457678.jpg
+posters/5459822.jpg
+posters/5460819.jpg
+posters/5461465.jpg
+posters/5461584.jpg
+posters/5463466.jpg
+posters/5500029.jpg
+posters/5501674.jpg
+posters/5501807.jpg
+posters/5502531.jpg
+posters/5503783.jpg
+posters/5506137.jpg
+posters/5507775.jpg
+posters/5509862.jpg
+posters/5511500.jpg
+posters/5511762.jpg
+posters/5511990.jpg
+posters/5515701.jpg
+posters/5516696.jpg
+posters/5613193.jpg
+posters/5613436.jpg
+posters/5613565.jpg
+posters/5613794.jpg
+posters/5618255.jpg
+posters/5631587.jpg
+posters/5632561.jpg
+posters/5632806.jpg
+posters/5698653.jpg
+posters/5698752.jpg
+posters/5699007.jpg
+posters/5862474.jpg
+posters/5899347.jpg
+posters/5902045.jpg
+posters/5918488.jpg
+posters/5920428.jpg
+posters/5921531.jpg
+posters/5921675.jpg
+posters/5948425.jpg
+posters/5956602.jpg
+posters/5961985.jpg
+posters/5992446.jpg
+posters/6040653.jpg
+posters/6041201.jpg
+posters/6044253.jpg
+posters/6046174.jpg
+posters/6046390.jpg
+posters/6059795.jpg
+posters/6080690.jpg
+posters/6116927.jpg
+posters/6121929.jpg
+posters/6138521.jpg
+posters/6158070.jpg
+posters/6158646.jpg
+posters/6191898.jpg
+posters/6215050.jpg
+posters/6215225.jpg
+posters/6224950.jpg
+posters/6267612.jpg
+posters/6288558.jpg
+posters/6331655.jpg
+posters/6354096.jpg
+posters/6358206.jpg
+posters/6361088.jpg
+posters/6380879.jpg
+posters/6383825.jpg
+posters/6385774.jpg
+posters/6389408.jpg
+posters/6389746.jpg
+posters/6399109.jpg
+posters/6399320.jpg
+posters/6405419.jpg
+posters/6405963.jpg
+posters/6435204.jpg
+posters/6457045.jpg
+posters/6468952.jpg
+posters/6520365.jpg
+posters/6526773.jpg
+posters/6527083.jpg
+posters/6527101.jpg
+posters/6527544.jpg
+posters/6530123.jpg
+posters/6532788.jpg
+posters/6533094.jpg
+posters/6544958.jpg
+posters/6553389.jpg
+posters/6577300.jpg
+posters/6602315.jpg
+posters/6619101.jpg
+posters/6634204.jpg
+posters/6641724.jpg
+posters/6652110.jpg
+posters/6652120.jpg
+posters/6658583.jpg
+posters/6751652.jpg
+posters/6752026.jpg
+posters/6797639.jpg
+posters/6801827.jpg
+posters/6943592.jpg
+posters/6958161.jpg
+posters/6975057.jpg
+posters/7006077.jpg
+posters/7029912.jpg
+posters/7037313.jpg
+posters/7038343.jpg
+posters/7085038.jpg
+posters/7098477.jpg
+posters/7107245.jpg
+posters/7149903.jpg
+posters/7176415.jpg
+posters/7185692.jpg
+posters/7186755.jpg
+posters/7236990.jpg
+posters/7238540.jpg
+posters/7433870.jpg
+posters/7465845.jpg
+posters/7484526.jpg
+posters/7485053.jpg
+posters/7509982.jpg
+posters/7525290.jpg
+posters/7554625.jpg
+posters/7605773.jpg
+posters/7722538.jpg
+posters/7772863.jpg
+posters/7782314.jpg
+posters/7790910.jpg
+posters/7933419.jpg
+posters/7951048.jpg
+posters/7954636.jpg
+posters/8046338.jpg
+posters/8061575.jpg
+posters/8075285.jpg
+posters/8103922.jpg
+posters/8107666.jpg
+posters/8113898.jpg
+posters/8114339.jpg
+posters/8185122.jpg
+posters/8321826.jpg
+posters/8347739.jpg
+posters/8350500.jpg
+posters/8358793.jpg
+posters/8490197.jpg
+posters/8591136.jpg
+posters/8625464.jpg
+posters/8666415.jpg
+posters/8695999.jpg
+posters/8738138.jpg
+posters/8946861.jpg
+posters/9091936.jpg
+posters/9162519.jpg
+posters/9171099.jpg
+posters/9416767.jpg
+
+File Contents:
+clean.py:
+```
+import csv
+
+INPUT = "movies.csv"
+OUTPUT = "movies_clean.csv"
+
+with open(INPUT, "r", encoding="utf-8-sig") as f_in, \
+     open(OUTPUT, "w", newline="", encoding="utf-8-sig") as f_out:
+    reader = csv.DictReader(f_in, delimiter=";")
+    fieldnames = reader.fieldnames + ["primary_genre"]
+    writer = csv.DictWriter(f_out, fieldnames=fieldnames, delimiter=";")
+    writer.writeheader()
+
+    for row in reader:
+        poster_file = row.get("poster_file", "").strip()
+        genres = row.get("genres", "").strip()
+        title = row.get("title", "").strip()
+
+        if not poster_file or not genres:
+            continue  # нам нужны только фильмы с постером и жанром
+
+        # первый жанр из строки "боевик, триллер"
+        primary_genre = genres.split(",")[0].strip()
+
+        row["primary_genre"] = primary_genre
+        writer.writerow(row)
+
+        print(f"Оставил: {title} [{primary_genre}]")
+
+```
+
+collages.csv:
+```
+﻿genre;collage_file;link
+мелодрама;мелодрама_01.jpg;https://t.me/TopTrailer82Bot
+мелодрама;мелодрама_02.jpg;https://t.me/TopTrailer82Bot
+мелодрама;мелодрама_03.jpg;https://t.me/TopTrailer82Bot
+мелодрама;мелодрама_04.jpg;https://t.me/TopTrailer82Bot
+мелодрама;мелодрама_05.jpg;https://t.me/TopTrailer82Bot
+детектив;детектив_01.jpg;https://t.me/TopTrailer82Bot
+комедия;комедия_01.jpg;https://t.me/TopTrailer82Bot
+комедия;комедия_02.jpg;https://t.me/TopTrailer82Bot
+комедия;комедия_03.jpg;https://t.me/TopTrailer82Bot
+комедия;комедия_04.jpg;https://t.me/TopTrailer82Bot
+триллер;триллер_01.jpg;https://t.me/TopTrailer82Bot
+триллер;триллер_02.jpg;https://t.me/TopTrailer82Bot
+триллер;триллер_03.jpg;https://t.me/TopTrailer82Bot
+триллер;триллер_04.jpg;https://t.me/TopTrailer82Bot
+триллер;триллер_05.jpg;https://t.me/TopTrailer82Bot
+драма;драма_01.jpg;https://t.me/TopTrailer82Bot
+драма;драма_02.jpg;https://t.me/TopTrailer82Bot
+драма;драма_03.jpg;https://t.me/TopTrailer82Bot
+драма;драма_04.jpg;https://t.me/TopTrailer82Bot
+драма;драма_05.jpg;https://t.me/TopTrailer82Bot
+драма;драма_06.jpg;https://t.me/TopTrailer82Bot
+драма;драма_07.jpg;https://t.me/TopTrailer82Bot
+драма;драма_08.jpg;https://t.me/TopTrailer82Bot
+драма;драма_09.jpg;https://t.me/TopTrailer82Bot
+драма;драма_10.jpg;https://t.me/TopTrailer82Bot
+драма;драма_11.jpg;https://t.me/TopTrailer82Bot
+драма;драма_12.jpg;https://t.me/TopTrailer82Bot
+драма;драма_13.jpg;https://t.me/TopTrailer82Bot
+документальный;документальный_01.jpg;https://t.me/TopTrailer82Bot
+документальный;документальный_02.jpg;https://t.me/TopTrailer82Bot
+документальный;документальный_03.jpg;https://t.me/TopTrailer82Bot
+документальный;документальный_04.jpg;https://t.me/TopTrailer82Bot
+документальный;документальный_05.jpg;https://t.me/TopTrailer82Bot
+боевик;боевик_01.jpg;https://t.me/TopTrailer82Bot
+боевик;боевик_02.jpg;https://t.me/TopTrailer82Bot
+аниме;аниме_01.jpg;https://t.me/TopTrailer82Bot
+аниме;аниме_02.jpg;https://t.me/TopTrailer82Bot
+аниме;аниме_03.jpg;https://t.me/TopTrailer82Bot
+аниме;аниме_04.jpg;https://t.me/TopTrailer82Bot
+мультфильм;мультфильм_01.jpg;https://t.me/TopTrailer82Bot
+мультфильм;мультфильм_02.jpg;https://t.me/TopTrailer82Bot
+
+```
+
+collages_with_titles.csv:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 487: character maps to <undefined>
+```
+
+kinoscraper.py:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 362: character maps to <undefined>
+```
+
+make_collages.py:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 116: character maps to <undefined>
+```
+
+movies.csv:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 10180: character maps to <undefined>
+```
+
+movies_clean.csv:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 10542: character maps to <undefined>
+```
+
+pins.csv:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 1869: character maps to <undefined>
+```
+
+pins.py:
+```
+import csv
+import os
+import re
+from collections import defaultdict
+
+MOVIES_CSV = "movies_clean.csv"
+OUTPUT_CSV = "collages_with_titles.csv"
+COLLAGES_DIR = "collages"  # где лежат готовые .jpg
+
+TILE_W = 500
+TILE_H = 750  # просто для инфы, тут не нужен
+
+def safe_name(s: str) -> str:
+    s = re.sub(r"[^0-9A-Za-zА-Яа-я]+", "_", s)
+    return s.strip("_") or "genre"
+
+# 1. Читаем фильмы и группируем по жанру, сортируем по рейтингу
+groups = defaultdict(list)
+
+with open(MOVIES_CSV, "r", encoding="utf-8-sig") as f:
+    reader = csv.DictReader(f, delimiter=";")
+    for row in reader:
+        genre = (row.get("primary_genre") or "").strip()
+        poster_file = (row.get("poster_file") or "").strip()
+        title = (row.get("title") or "").strip()
+        rating_raw = (row.get("rating_kp") or "").strip()
+
+        if not genre or not poster_file:
+            continue
+        if not os.path.exists(poster_file):
+            continue
+
+        rating_clean = rating_raw.replace(",", ".")
+        try:
+            rating_value = float(rating_clean)
+        except:
+            rating_value = 0.0
+
+        groups[genre].append({
+            "title": title,
+            "poster_file": poster_file,
+            "rating": rating_value,
+        })
+
+if not groups:
+    raise RuntimeError("Не нашли ни одного фильма. Проверь movies_clean.csv и пути poster_file.")
+
+# 2. Собираем мету по коллажам в том же порядке, как в make_collages.py
+rows_out = []
+
+for genre, films in groups.items():
+    if len(films) < 4:
+        continue
+
+    films_sorted = sorted(films, key=lambda x: -x["rating"])
+    safe_genre = safe_name(genre)
+
+    collage_index = 1
+    for i in range(0, len(films_sorted), 4):
+        batch = films_sorted[i:i+4]
+        if len(batch) < 4:
+            break
+
+        collage_file = f"{safe_genre}_{collage_index:02d}.jpg"
+        collage_path = os.path.join(COLLAGES_DIR, collage_file)
+        if not os.path.exists(collage_path):
+            # если по какой-то причине картинки нет, пропускаем
+            continue
+
+        rows_out.append({
+            "genre": genre,
+            "collage_file": collage_file,
+            "film1": batch[0]["title"],
+            "film2": batch[1]["title"],
+            "film3": batch[2]["title"],
+            "film4": batch[3]["title"],
+        })
+
+        collage_index += 1
+
+# 3. Пишем collages_with_titles.csv
+with open(OUTPUT_CSV, "w", newline="", encoding="utf-8-sig") as f_out:
+    writer = csv.writer(f_out, delimiter=";")
+    writer.writerow(["genre", "collage_file", "film1", "film2", "film3", "film4"])
+    for row in rows_out:
+        writer.writerow([
+            row["genre"],
+            row["collage_file"],
+            row["film1"],
+            row["film2"],
+            row["film3"],
+            row["film4"],
+        ])
+
+print(f"Готово: {OUTPUT_CSV}, строк: {len(rows_out)}")
+
+```
+
+pins.xlsx:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 668: character maps to <undefined>
+```
+
+pins_for_collage.py:
+```
+import csv
+import os
+from datetime import datetime
+
+COLLAGES_CSV = "collages_with_titles.csv"
+OUTPUT_CSV = "pins.csv"
+
+BASE_IMAGE_URL = "https://sshamanello.ru/collages"  # поменяй под себя
+BOARD_NAME = "Фильмы на вечер"
+BOARD_ID = "ВАШ_BOARD_ID"
+BOT_URL = "https://t.me/TopTrailer82Bot"
+
+TITLES = [
+    "4 мелодрамы, которые хочется смотреть запоем",
+    "4 мелодрамы для уютного вечера вдвоём",
+    "4 мелодрамы, оставляющие тёплое послевкусие",
+    "4 мелодрамы, которые цепляют с первых минут",
+    "4 мелодрамы, чтобы погрузиться в чувства по полной",
+    "4 детектива, от которых невозможно оторваться",
+    "4 комедии, чтобы поднять себе настроение",
+    "4 комедии, которые реально смешные",
+    "4 комедии на вечер, когда хочется просто расслабиться",
+    "4 комедии, которые заставят улыбаться до конца",
+    "4 триллера, которые держат в напряжении каждый кадр",
+    "4 триллера, после которых сложно уснуть",
+    "4 триллера с мощными сюжетными твистами",
+    "4 триллера, которые пробирают до мурашек",
+    "4 триллера для тех, кто любит настоящий саспенс",
+    "4 драмы, которые бьют в самое сердце",
+    "4 драмы, оставляющие долгий след в голове",
+    "4 драмы, которые хочется обсуждать",
+    "4 драмы, основанные на сильных историях",
+    "4 драмы, которые заставляют задуматься",
+    "4 эмоциональные драмы на вечер",
+    "4 драмы, которые трогают до глубины души",
+    "4 драмы, которые невозможно забыть",
+    "4 драмы для тех, кто любит сильные переживания",
+    "4 драмы, которые цепляют с первых минут",
+    "4 мощные драмы, которые смотрятся на одном дыхании",
+    "4 драмы, которые раскрывают человеческие истории",
+    "4 глубокие драмы для вдумчивого просмотра",
+    "4 документалки, которые реально расширяют кругозор",
+    "4 документальных фильма, от которых сложно отвести взгляд",
+    "4 документалки с сильным посылом",
+    "4 документалки, которые нужно увидеть каждому",
+    "4 документальных фильма, которые вдохновляют",
+    "4 боевика, где действие начинается сразу",
+    "4 боевика для заряда адреналином",
+    "4 аниме, которые стоит посмотреть новичку",
+    "4 аниме, которые цепляют с первой серии",
+    "4 атмосферных аниме для вечера",
+    "4 аниме, которые тебя удивят",
+    "4 мультфильма для идеального семейного вечера",
+    "4 мультфильма, которые создают уютное настроение",
+]
+
+rows = []
+with open(COLLAGES_CSV, "r", encoding="utf-8-sig") as f:
+    reader = csv.DictReader(f, delimiter=";")
+    for row in reader:
+        rows.append(row)
+
+count = min(len(rows), len(TITLES))
+now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+with open(OUTPUT_CSV, "w", newline="", encoding="utf-8-sig") as f_out:
+    writer = csv.writer(f_out, delimiter=";")
+    writer.writerow([
+        "id",
+        "image_url",
+        "title",
+        "description",
+        "keywords",
+        "category",
+        "board",
+        "board_id",
+        "status",
+        "created_at",
+        "posted_at",
+        "notes",
+    ])
+
+    for i in range(count):
+        c = rows[i]
+        genre = (c.get("genre") or "").strip()
+        collage_file = (c.get("collage_file") or "").strip()
+        film1 = (c.get("film1") or "").strip()
+        film2 = (c.get("film2") or "").strip()
+        film3 = (c.get("film3") or "").strip()
+        film4 = (c.get("film4") or "").strip()
+
+        title = TITLES[i]
+        filename = os.path.basename(collage_file)
+        image_url = f"{BASE_IMAGE_URL}/{filename}"
+
+        films_list = ", ".join([f for f in [film1, film2, film3, film4] if f])
+
+        description = (
+            f"{title}. Фильмы в подборке: {films_list}.\n"
+            f"Напиши нашему кино-боту в Telegram, чтобы быстро найти фильмы под настроение: {BOT_URL}"
+        )
+
+        keywords = f"фильмы,{genre},подборка,что посмотреть,кино на вечер"
+
+        writer.writerow([
+            i + 1,
+            image_url,
+            title,
+            description,
+            keywords,
+            "Фильмы",
+            BOARD_NAME,
+            BOARD_ID,
+            "pending",
+            now_str,
+            "",
+            "",
+        ])
+
+print(f"Готово: {OUTPUT_CSV}, строк: {count}")
+
+```
+
+tags.py:
+```
+import csv
+from collections import defaultdict
+
+INPUT = "movies_clean.csv"
+
+groups = defaultdict(list)
+
+with open(INPUT, "r", encoding="utf-8-sig") as f:
+    reader = csv.DictReader(f, delimiter=";")
+    for row in reader:
+        genre = (row.get("primary_genre") or "").strip()
+        poster_file = (row.get("poster_file") or "").strip()
+        title = (row.get("title") or "").strip()
+        rating_raw = (row.get("rating_kp") or "").strip()
+
+        # пропускаем строки без жанра или без постера
+        if not genre or not poster_file:
+            continue
+
+        # приводим рейтинг к float, учитывая запятую в числе
+        rating_clean = rating_raw.replace(",", ".")
+        try:
+            rating_value = float(rating_clean)
+        except:
+            rating_value = 0.0
+
+        groups[genre].append({
+            "title": title,
+            "poster_file": poster_file,
+            "rating": rating_value,
+        })
+
+# пример: выводим первые 2 коллажа для одного жанра
+target_genre = "триллер"  # здесь меняешь на нужный жанр из таблицы
+
+if target_genre not in groups:
+    print(f"Жанр '{target_genre}' не найден в данных.")
+else:
+    films = sorted(groups[target_genre], key=lambda x: -x["rating"])
+    print(f"Найдено {len(films)} фильмов жанра {target_genre}")
+
+    # разбиваем по 4 фильма: первые 2 коллажа = максимум 8 фильмов
+    for i in range(0, min(len(films), 8), 4):
+        batch = films[i:i+4]
+        if len(batch) < 4:
+            break
+
+        print(f"\nКоллаж #{i // 4 + 1}:")
+        for film in batch:
+            print(f"  {film['title']}  ->  {film['poster_file']}")
+
+```
+
+�����_01.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 420: character maps to <undefined>
+```
+
+�����_02.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 349: character maps to <undefined>
+```
+
+�����_03.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 619: character maps to <undefined>
+```
+
+�����_04.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 589: character maps to <undefined>
+```
+
+������_01.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 351: character maps to <undefined>
+```
+
+������_02.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 577: character maps to <undefined>
+```
+
+��������_01.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 674: character maps to <undefined>
+```
+
+��������������_01.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 2202: character maps to <undefined>
+```
+
+��������������_02.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 444: character maps to <undefined>
+```
+
+��������������_03.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 363: character maps to <undefined>
+```
+
+��������������_04.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 788: character maps to <undefined>
+```
+
+��������������_05.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 1346: character maps to <undefined>
+```
+
+�����_01.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 916: character maps to <undefined>
+```
+
+�����_02.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 755: character maps to <undefined>
+```
+
+�����_03.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 599: character maps to <undefined>
+```
+
+�����_04.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 381: character maps to <undefined>
+```
+
+�����_05.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 815: character maps to <undefined>
+```
+
+�����_06.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 378: character maps to <undefined>
+```
+
+�����_07.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 379: character maps to <undefined>
+```
+
+�����_08.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 1259: character maps to <undefined>
+```
+
+�����_09.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 442: character maps to <undefined>
+```
+
+�����_10.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 410: character maps to <undefined>
+```
+
+�����_11.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 621: character maps to <undefined>
+```
+
+�����_12.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 1152: character maps to <undefined>
+```
+
+�����_13.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 706: character maps to <undefined>
+```
+
+�������_01.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 1874: character maps to <undefined>
+```
+
+�������_02.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 758: character maps to <undefined>
+```
+
+�������_03.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 789: character maps to <undefined>
+```
+
+�������_04.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 459: character maps to <undefined>
+```
+
+���������_01.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 341: character maps to <undefined>
+```
+
+���������_02.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 505: character maps to <undefined>
+```
+
+���������_03.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 332: character maps to <undefined>
+```
+
+���������_04.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 527: character maps to <undefined>
+```
+
+���������_05.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 739: character maps to <undefined>
+```
+
+����������_01.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 379: character maps to <undefined>
+```
+
+����������_02.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 634: character maps to <undefined>
+```
+
+�������_01.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 457: character maps to <undefined>
+```
+
+�������_02.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 371: character maps to <undefined>
+```
+
+�������_03.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 977: character maps to <undefined>
+```
+
+�������_04.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 438: character maps to <undefined>
+```
+
+�������_05.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 452: character maps to <undefined>
+```
+
+1040427.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 540: character maps to <undefined>
+```
+
+1399213.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 707: character maps to <undefined>
+```
+
+1403073.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 475: character maps to <undefined>
+```
+
+2003391.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 520: character maps to <undefined>
+```
+
+4294117.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 1078: character maps to <undefined>
+```
+
+4407678.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 446: character maps to <undefined>
+```
+
+4745679.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 1088: character maps to <undefined>
+```
+
+4747934.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 1264: character maps to <undefined>
+```
+
+4779112.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 1781: character maps to <undefined>
+```
+
+4909266.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 610: character maps to <undefined>
+```
+
+4923658.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 790: character maps to <undefined>
+```
+
+5004943.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 589: character maps to <undefined>
+```
+
+5024491.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 1058: character maps to <undefined>
+```
+
+5051286.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 589: character maps to <undefined>
+```
+
+5051546.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 445: character maps to <undefined>
+```
+
+5052569.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 725: character maps to <undefined>
+```
+
+5101852.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 892: character maps to <undefined>
+```
+
+5126208.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 544: character maps to <undefined>
+```
+
+5135252.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 718: character maps to <undefined>
+```
+
+5200263.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 505: character maps to <undefined>
+```
+
+5212316.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 1568: character maps to <undefined>
+```
+
+5235272.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 790: character maps to <undefined>
+```
+
+5249707.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 398: character maps to <undefined>
+```
+
+5262369.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 845: character maps to <undefined>
+```
+
+5265041.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 457: character maps to <undefined>
+```
+
+5280944.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 918: character maps to <undefined>
+```
+
+5286718.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 446: character maps to <undefined>
+```
+
+5318770.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 492: character maps to <undefined>
+```
+
+5320155.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 940: character maps to <undefined>
+```
+
+5365825.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 385: character maps to <undefined>
+```
+
+5368141.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 492: character maps to <undefined>
+```
+
+5407776.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 1342: character maps to <undefined>
+```
+
+5408295.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 454: character maps to <undefined>
+```
+
+5411677.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 1473: character maps to <undefined>
+```
+
+5415937.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 631: character maps to <undefined>
+```
+
+5419025.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 595: character maps to <undefined>
+```
+
+5420655.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 1257: character maps to <undefined>
+```
+
+5428072.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 935: character maps to <undefined>
+```
+
+5428790.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 635: character maps to <undefined>
+```
+
+5445458.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 512: character maps to <undefined>
+```
+
+5445460.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 839: character maps to <undefined>
+```
+
+5447089.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 1141: character maps to <undefined>
+```
+
+5448371.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 458: character maps to <undefined>
+```
+
+5451179.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 493: character maps to <undefined>
+```
+
+5452438.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 1175: character maps to <undefined>
+```
+
+5453487.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 1179: character maps to <undefined>
+```
+
+5455004.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 524: character maps to <undefined>
+```
+
+5455268.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 805: character maps to <undefined>
+```
+
+5457359.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 578: character maps to <undefined>
+```
+
+5457678.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 597: character maps to <undefined>
+```
+
+5459822.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 1267: character maps to <undefined>
+```
+
+5460819.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 549: character maps to <undefined>
+```
+
+5461465.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 434: character maps to <undefined>
+```
+
+5461584.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 823: character maps to <undefined>
+```
+
+5463466.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 873: character maps to <undefined>
+```
+
+5500029.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 444: character maps to <undefined>
+```
+
+5501674.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 1082: character maps to <undefined>
+```
+
+5501807.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 401: character maps to <undefined>
+```
+
+5502531.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 582: character maps to <undefined>
+```
+
+5503783.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 734: character maps to <undefined>
+```
+
+5506137.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 216: character maps to <undefined>
+```
+
+5507775.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 484: character maps to <undefined>
+```
+
+5509862.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 519: character maps to <undefined>
+```
+
+5511500.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 532: character maps to <undefined>
+```
+
+5511762.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 519: character maps to <undefined>
+```
+
+5511990.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 489: character maps to <undefined>
+```
+
+5515701.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 666: character maps to <undefined>
+```
+
+5516696.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 789: character maps to <undefined>
+```
+
+5613193.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 865: character maps to <undefined>
+```
+
+5613436.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 1132: character maps to <undefined>
+```
+
+5613565.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 737: character maps to <undefined>
+```
+
+5613794.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 438: character maps to <undefined>
+```
+
+5618255.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 724: character maps to <undefined>
+```
+
+5631587.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 770: character maps to <undefined>
+```
+
+5632561.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 386: character maps to <undefined>
+```
+
+5632806.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 897: character maps to <undefined>
+```
+
+5698653.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 939: character maps to <undefined>
+```
+
+5698752.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 546: character maps to <undefined>
+```
+
+5699007.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 461: character maps to <undefined>
+```
+
+5862474.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 480: character maps to <undefined>
+```
+
+5899347.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 950: character maps to <undefined>
+```
+
+5902045.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 564: character maps to <undefined>
+```
+
+5918488.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 906: character maps to <undefined>
+```
+
+5920428.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 1004: character maps to <undefined>
+```
+
+5921531.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 447: character maps to <undefined>
+```
+
+5921675.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 572: character maps to <undefined>
+```
+
+5948425.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 433: character maps to <undefined>
+```
+
+5956602.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 441: character maps to <undefined>
+```
+
+5961985.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 785: character maps to <undefined>
+```
+
+5992446.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 532: character maps to <undefined>
+```
+
+6040653.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 456: character maps to <undefined>
+```
+
+6041201.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 430: character maps to <undefined>
+```
+
+6044253.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 418: character maps to <undefined>
+```
+
+6046174.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 538: character maps to <undefined>
+```
+
+6046390.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 497: character maps to <undefined>
+```
+
+6059795.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 520: character maps to <undefined>
+```
+
+6080690.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 868: character maps to <undefined>
+```
+
+6116927.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 1034: character maps to <undefined>
+```
+
+6121929.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 1046: character maps to <undefined>
+```
+
+6138521.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 435: character maps to <undefined>
+```
+
+6158070.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 474: character maps to <undefined>
+```
+
+6158646.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 553: character maps to <undefined>
+```
+
+6191898.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 952: character maps to <undefined>
+```
+
+6215050.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 604: character maps to <undefined>
+```
+
+6215225.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 800: character maps to <undefined>
+```
+
+6224950.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 899: character maps to <undefined>
+```
+
+6267612.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 570: character maps to <undefined>
+```
+
+6288558.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 1147: character maps to <undefined>
+```
+
+6331655.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 483: character maps to <undefined>
+```
+
+6354096.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 671: character maps to <undefined>
+```
+
+6358206.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 596: character maps to <undefined>
+```
+
+6361088.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 897: character maps to <undefined>
+```
+
+6380879.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 880: character maps to <undefined>
+```
+
+6383825.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 657: character maps to <undefined>
+```
+
+6385774.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 557: character maps to <undefined>
+```
+
+6389408.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 416: character maps to <undefined>
+```
+
+6389746.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 411: character maps to <undefined>
+```
+
+6399109.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 406: character maps to <undefined>
+```
+
+6399320.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 1132: character maps to <undefined>
+```
+
+6405419.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 461: character maps to <undefined>
+```
+
+6405963.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 435: character maps to <undefined>
+```
+
+6435204.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 1187: character maps to <undefined>
+```
+
+6457045.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 417: character maps to <undefined>
+```
+
+6468952.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 896: character maps to <undefined>
+```
+
+6520365.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 534: character maps to <undefined>
+```
+
+6526773.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 443: character maps to <undefined>
+```
+
+6527083.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 574: character maps to <undefined>
+```
+
+6527101.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 614: character maps to <undefined>
+```
+
+6527544.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 412: character maps to <undefined>
+```
+
+6530123.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 613: character maps to <undefined>
+```
+
+6532788.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 508: character maps to <undefined>
+```
+
+6533094.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 711: character maps to <undefined>
+```
+
+6544958.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 770: character maps to <undefined>
+```
+
+6553389.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 670: character maps to <undefined>
+```
+
+6577300.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 696: character maps to <undefined>
+```
+
+6602315.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 1129: character maps to <undefined>
+```
+
+6619101.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 442: character maps to <undefined>
+```
+
+6634204.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 2078: character maps to <undefined>
+```
+
+6641724.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 982: character maps to <undefined>
+```
+
+6652110.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 418: character maps to <undefined>
+```
+
+6652120.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 783: character maps to <undefined>
+```
+
+6658583.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 662: character maps to <undefined>
+```
+
+6751652.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 661: character maps to <undefined>
+```
+
+6752026.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 630: character maps to <undefined>
+```
+
+6797639.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 500: character maps to <undefined>
+```
+
+6801827.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 1574: character maps to <undefined>
+```
+
+6943592.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 487: character maps to <undefined>
+```
+
+6958161.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 326: character maps to <undefined>
+```
+
+6975057.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 500: character maps to <undefined>
+```
+
+7006077.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 1695: character maps to <undefined>
+```
+
+7029912.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 1126: character maps to <undefined>
+```
+
+7037313.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 664: character maps to <undefined>
+```
+
+7038343.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 392: character maps to <undefined>
+```
+
+7085038.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 617: character maps to <undefined>
+```
+
+7098477.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 1323: character maps to <undefined>
+```
+
+7107245.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 970: character maps to <undefined>
+```
+
+7149903.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 470: character maps to <undefined>
+```
+
+7176415.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 725: character maps to <undefined>
+```
+
+7185692.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 1029: character maps to <undefined>
+```
+
+7186755.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 408: character maps to <undefined>
+```
+
+7236990.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 1012: character maps to <undefined>
+```
+
+7238540.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 737: character maps to <undefined>
+```
+
+7433870.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 614: character maps to <undefined>
+```
+
+7465845.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 447: character maps to <undefined>
+```
+
+7484526.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 387: character maps to <undefined>
+```
+
+7485053.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 935: character maps to <undefined>
+```
+
+7509982.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 1171: character maps to <undefined>
+```
+
+7525290.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 435: character maps to <undefined>
+```
+
+7554625.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 842: character maps to <undefined>
+```
+
+7605773.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 919: character maps to <undefined>
+```
+
+7722538.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 856: character maps to <undefined>
+```
+
+7772863.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 1577: character maps to <undefined>
+```
+
+7782314.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 464: character maps to <undefined>
+```
+
+7790910.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 567: character maps to <undefined>
+```
+
+7933419.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 625: character maps to <undefined>
+```
+
+7951048.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 397: character maps to <undefined>
+```
+
+7954636.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 387: character maps to <undefined>
+```
+
+8046338.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 394: character maps to <undefined>
+```
+
+8061575.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 514: character maps to <undefined>
+```
+
+8075285.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 252: character maps to <undefined>
+```
+
+8103922.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 571: character maps to <undefined>
+```
+
+8107666.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 385: character maps to <undefined>
+```
+
+8113898.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 1381: character maps to <undefined>
+```
+
+8114339.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 569: character maps to <undefined>
+```
+
+8185122.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 681: character maps to <undefined>
+```
+
+8321826.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 547: character maps to <undefined>
+```
+
+8347739.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 548: character maps to <undefined>
+```
+
+8350500.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 802: character maps to <undefined>
+```
+
+8358793.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 644: character maps to <undefined>
+```
+
+8490197.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 580: character maps to <undefined>
+```
+
+8591136.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 567: character maps to <undefined>
+```
+
+8625464.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 432: character maps to <undefined>
+```
+
+8666415.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 978: character maps to <undefined>
+```
+
+8695999.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 945: character maps to <undefined>
+```
+
+8738138.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 419: character maps to <undefined>
+```
+
+8946861.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 722: character maps to <undefined>
+```
+
+9091936.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 802: character maps to <undefined>
+```
+
+9162519.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 1091: character maps to <undefined>
+```
+
+9171099.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 600: character maps to <undefined>
+```
+
+9416767.jpg:
+```
+Error reading file: 'charmap' codec can't decode byte 0x98 in position 438: character maps to <undefined>
+```

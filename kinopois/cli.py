@@ -5,17 +5,14 @@ from pathlib import Path
 
 import click
 from rich.console import Console
+from rich.table import Table
 
 from kinopois import __version__
 from kinopois.collage import create_collages
 from kinopois.config import config
-from kinopois.export import (
-    export_pinterest_csv,
-    export_simple_collages_csv,
-    export_summary,
-)
-from kinopois.marker import mark_posters, PosterMarker
-from kinopois.processor import load_clean_movies, load_movies
+from kinopois.database import Database
+from kinopois.export import export_for_n8n, export_for_pinterest
+from kinopois.marker import mark_posters
 from kinopois.scraper import KinopoiskScraper
 
 console = Console()
@@ -64,14 +61,9 @@ def main(ctx, api_key, data_dir):
     default=200,
     help="Number of movies to download",
 )
-@click.option(
-    "--output",
-    type=click.Path(path_type=Path),
-    help="Output CSV file path",
-)
 @click.pass_context
-def download(ctx, limit, output):
-    """Download movie posters from Kinopoisk."""
+def download(ctx, limit):
+    """Download movie posters from Kinopoisk to database."""
     if not config.kinopoisk_api_key:
         console.print("[red]Error: KINOPOISK_API_KEY is required[/red]")
         console.print("Set it via --api-key option or KINOPOISK_API_KEY env var")
@@ -80,51 +72,12 @@ def download(ctx, limit, output):
     console.print(f"[cyan]Downloading {limit} movies from Kinopoisk...[/cyan]")
 
     scraper = KinopoiskScraper(config.kinopoisk_api_key)
-    output_path = scraper.download_and_save(output_csv=output, limit=limit)
+    count = scraper.download_and_save(limit=limit)
 
-    console.print(f"[green]✓ Download complete: {output_path}[/green]")
-
-
-@main.command()
-@click.option(
-    "--input",
-    type=click.Path(exists=True, path_type=Path),
-    help="Input CSV file (default: data/cache/movies.csv)",
-)
-@click.option(
-    "--output",
-    type=click.Path(path_type=Path),
-    help="Output CSV file (default: data/cache/movies_clean.csv)",
-)
-@click.pass_context
-def process(ctx, input, output):
-    """Process movie data: clean and add primary genre."""
-    input_path = input or config.cache_dir / "movies.csv"
-    output_path = output or config.cache_dir / "movies_clean.csv"
-
-    if not input_path.exists():
-        console.print(f"[red]Error: Input file not found: {input_path}[/red]")
-        raise click.Abort()
-
-    console.print(f"[cyan]Processing {input_path}...[/cyan]")
-
-    processor = load_movies(input_path)
-    processor.clean(output_path)
-
-    console.print(f"[green]✓ Processing complete: {output_path}[/green]")
+    console.print(f"[green]OK Downloaded {count} movies to database[/green]")
 
 
 @main.command()
-@click.option(
-    "--input",
-    type=click.Path(exists=True, path_type=Path),
-    help="Input CSV file (default: data/cache/movies_clean.csv)",
-)
-@click.option(
-    "--output-dir",
-    type=click.Path(path_type=Path),
-    help="Output directory for collages",
-)
 @click.option(
     "--watermark",
     help="Watermark text to overlay",
@@ -135,25 +88,16 @@ def process(ctx, input, output):
     help="Maximum collages per genre",
 )
 @click.pass_context
-def collage(ctx, input, output_dir, watermark, max_per_genre):
-    """Create 2x2 collages from movie posters."""
-    input_path = input or config.cache_dir / "movies_clean.csv"
-
-    if not input_path.exists():
-        console.print(f"[red]Error: Input file not found: {input_path}[/red]")
-        console.print("Run 'kinopois process' first to create movies_clean.csv")
-        raise click.Abort()
-
+def collage(ctx, watermark, max_per_genre):
+    """Create 2x2 collages from movies in database."""
     console.print("[cyan]Creating collages...[/cyan]")
 
-    output_csv = create_collages(
-        input_csv=input_path,
-        output_dir=output_dir,
+    count = create_collages(
         watermark=watermark,
         max_per_genre=max_per_genre,
     )
 
-    console.print(f"[green]✓ Collages created: {output_csv}[/green]")
+    console.print(f"[green]OK Created {count} collages[/green]")
 
 
 @main.command()
@@ -188,18 +132,13 @@ def mark(ctx, input_dir, output_dir, text, position):
         output_dir=output_dir,
     )
 
-    console.print(f"[green]✓ Marked {marked} posters[/green]")
+    console.print(f"[green]OK Marked {marked} posters[/green]")
 
 
 @main.command()
 @click.option(
-    "--input",
-    type=click.Path(exists=True, path_type=Path),
-    help="Collages CSV file",
-)
-@click.option(
     "--format",
-    type=click.Choice(["pinterest", "simple", "summary"]),
+    type=click.Choice(["pinterest", "n8n", "simple", "summary"]),
     default="pinterest",
     help="Export format",
 )
@@ -209,28 +148,43 @@ def mark(ctx, input_dir, output_dir, text, position):
     help="Output file path",
 )
 @click.pass_context
-def export(ctx, input, format, output):
-    """Export collages to various formats."""
-    if format == "summary":
-        # Summary needs both collages and movies
-        collages_csv = input or config.cache_dir / "collages.csv"
-        movies_csv = config.cache_dir / "movies_clean.csv"
-        export_summary(collages_csv, movies_csv, output)
-    elif format == "pinterest":
-        input_csv = input or config.cache_dir / "collages.csv"
-        export_pinterest_csv(input_csv, output)
-    else:  # simple
-        input_csv = input or config.cache_dir / "collages.csv"
-        export_simple_collages_csv(input_csv, output)
+def export(ctx, format, output):
+    """Export collages from database to various formats."""
+    console.print(f"[cyan]Exporting collages as {format}...[/cyan]")
 
-    console.print(f"[green]✓ Export complete[/green]")
+    with Database() as db:
+        if format == "summary":
+            stats = db.get_stats()
+            console.print("\n[bold]Database Statistics:[/bold]")
+            console.print(f"  Movies: {stats['movies']}")
+            console.print(f"  Collages: {stats['collages']}")
+            if stats['by_genre']:
+                console.print("\n  [bold]By Genre:[/bold]")
+                for genre, count in list(stats['by_genre'].items())[:10]:
+                    console.print(f"    {genre}: {count}")
+        elif format == "pinterest":
+            export_for_pinterest(db, output)
+        elif format == "n8n":
+            export_for_n8n(db, output)
+        else:  # simple
+            collages = db.get_collages()
+            if output:
+                with open(output, "w", encoding="utf-8") as f:
+                    f.write("genre;collage_file;link\n")
+                    for c in collages:
+                        f.write(f"{c.genre};{c.collage_file};{config.bot_url}\n")
+                console.print(f"[green]OK Exported {len(collages)} collages to {output}[/green]")
+            else:
+                console.print("[yellow]Please specify --output path for simple format[/yellow]")
+
+    console.print("[green]OK Export complete[/green]")
 
 
 @main.command()
 @click.option(
     "--all",
     is_flag=True,
-    help="Run full pipeline: download -> process -> collage -> export",
+    help="Run full pipeline: download -> collage -> export",
 )
 @click.option(
     "--limit",
@@ -247,7 +201,7 @@ def run(ctx, all, limit, skip_download):
     """Run the full workflow or individual steps."""
     if not all:
         console.print("[yellow]Use --all flag to run full pipeline[/yellow]")
-        console.print("Or run individual commands: download, process, collage, export")
+        console.print("Or run individual commands: download, collage, export")
         return
 
     if not config.kinopoisk_api_key and not skip_download:
@@ -261,26 +215,22 @@ def run(ctx, all, limit, skip_download):
         console.print("\n[bold]Step 1: Download[/bold]")
         ctx.invoke(download, limit=limit)
 
-    # Process
-    console.print("\n[bold]Step 2: Process[/bold]")
-    ctx.invoke(process)
-
     # Create collages
-    console.print("\n[bold]Step 3: Create collages[/bold]")
+    console.print("\n[bold]Step 2: Create collages[/bold]")
     ctx.invoke(collage)
 
     # Export
-    console.print("\n[bold]Step 4: Export[/bold]")
+    console.print("\n[bold]Step 3: Export[/bold]")
     ctx.invoke(export, format="pinterest")
 
-    console.print("\n[green]✓ Pipeline complete![/green]")
+    console.print("\n[green]OK Pipeline complete![/green]")
 
 
 @main.command()
 @click.option(
-    "--cache",
+    "--db",
     is_flag=True,
-    help="Clean cache directory",
+    help="Clean database",
 )
 @click.option(
     "--collages",
@@ -288,78 +238,99 @@ def run(ctx, all, limit, skip_download):
     help="Clean collages directory",
 )
 @click.option(
+    "--posters",
+    is_flag=True,
+    help="Clean posters directory",
+)
+@click.option(
     "--all",
     is_flag=True,
     help="Clean all generated data",
 )
 @click.pass_context
-def clean(ctx, cache, collages, all):
+def clean(ctx, db, collages, posters, all):
     """Clean generated data."""
     targets = []
 
     if all:
-        targets.extend([config.cache_dir, config.collages_dir])
+        if (config.data_dir / "kinopois.db").exists():
+            targets.append("db")
+        targets.extend(["collages", "posters"])
     else:
-        if cache:
-            targets.append(config.cache_dir)
+        if db:
+            targets.append("db")
         if collages:
-            targets.append(config.collages_dir)
+            targets.append("collages")
+        if posters:
+            targets.append("posters")
 
     if not targets:
-        console.print("[yellow]Nothing to clean. Use --cache, --collages, or --all[/yellow]")
+        console.print("[yellow]Nothing to clean. Use --db, --collages, --posters, or --all[/yellow]")
         return
 
     for target in targets:
-        if target.exists():
-            shutil.rmtree(target)
-            console.print(f"[cyan]Removed: {target}[/cyan]")
+        if target == "db":
+            db_path = config.data_dir / "kinopois.db"
+            if db_path.exists():
+                db_path.unlink()
+                console.print(f"[cyan]Removed: {db_path}[/cyan]")
+        elif target == "collages":
+            if config.collages_dir.exists():
+                shutil.rmtree(config.collages_dir)
+                config.collages_dir.mkdir(parents=True, exist_ok=True)
+                console.print(f"[cyan]Cleared: {config.collages_dir}[/cyan]")
+        elif target == "posters":
+            if config.posters_dir.exists():
+                shutil.rmtree(config.posters_dir)
+                config.posters_dir.mkdir(parents=True, exist_ok=True)
+                console.print(f"[cyan]Cleared: {config.posters_dir}[/cyan]")
 
-    console.print("[green]✓ Clean complete[/green]")
+    console.print("[green]OK Clean complete[/green]")
 
 
 @main.command()
 @click.pass_context
 def info(ctx):
-    """Show project information and paths."""
-    console.print("[bold]Kinopoisk Poster Downloader[/bold]")
+    """Show project information and database statistics."""
+    console.print(f"[bold cyan]Kinopoisk Poster Downloader[/bold cyan]")
     console.print(f"Version: {__version__}")
     console.print("")
+
+    # Configuration
     console.print("[bold]Configuration:[/bold]")
     console.print(f"  Data dir:      {config.data_dir}")
     console.print(f"  Posters dir:   {config.posters_dir}")
     console.print(f"  Collages dir:  {config.collages_dir}")
-    console.print(f"  Cache dir:     {config.cache_dir}")
+    console.print(f"  Database:      {config.data_dir / 'kinopois.db'}")
     console.print("")
-    console.print("[bold]Status:[/bold]")
 
-    # Check directories
+    # File counts
     posters_count = len(list(config.posters_dir.glob("*.jpg"))) if config.posters_dir.exists() else 0
     collages_count = len(list(config.collages_dir.glob("*.jpg"))) if config.collages_dir.exists() else 0
 
+    console.print("[bold]Files:[/bold]")
     console.print(f"  Posters:       {posters_count} files")
     console.print(f"  Collages:      {collages_count} files")
+    console.print("")
 
-    # Check cache files
-    cache_files = []
-    if config.cache_dir.exists():
-        for csv_file in ["movies.csv", "movies_clean.csv", "collages.csv", "pins.csv"]:
-            path = config.cache_dir / csv_file
-            if path.exists():
-                cache_files.append(f"  {csv_file}")
+    # Database stats
+    db_path = config.data_dir / "kinopois.db"
+    if db_path.exists():
+        with Database() as db:
+            stats = db.get_stats()
+            console.print("[bold]Database:[/bold]")
+            console.print(f"  Movies:       {stats['movies']}")
+            console.print(f"  Collages:      {stats['collages']}")
 
-    if cache_files:
-        console.print("  Cache files:")
-        console.print("\n".join(cache_files))
+            if stats['by_genre']:
+                console.print("")
+                console.print("  [bold]Movies by genre:[/bold]")
+                for genre, count in list(stats['by_genre'].items())[:5]:
+                    console.print(f"    {genre}: {count}")
+                if len(stats['by_genre']) > 5:
+                    console.print(f"    ... and {len(stats['by_genre']) - 5} more")
     else:
-        console.print("  Cache files:  (none)")
-
-
-@main.command()
-@click.pass_context
-def interactive(ctx):
-    """Launch interactive menu mode with keyboard navigation."""
-    from kinopois.interactive import interactive as run_interactive
-    run_interactive()
+        console.print("[yellow]Database not found. Run 'download' first.[/yellow]")
 
 
 if __name__ == "__main__":

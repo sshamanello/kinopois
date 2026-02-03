@@ -1,8 +1,5 @@
 """Interactive CLI menu with keyboard navigation."""
 
-from pathlib import Path
-from typing import Optional
-
 import click
 import questionary
 from rich.console import Console
@@ -10,16 +7,11 @@ from rich.panel import Panel
 from rich.table import Table
 
 from kinopois import __version__
-from kinopois.cli import main as cli_main
 from kinopois.collage import create_collages
 from kinopois.config import config
-from kinopois.export import (
-    export_pinterest_csv,
-    export_simple_collages_csv,
-    export_summary,
-)
-from kinopois.marker import mark_posters, PosterMarker
-from kinopois.processor import load_clean_movies, load_movies
+from kinopois.database import Database
+from kinopois.export import export_for_pinterest
+from kinopois.marker import mark_posters
 from kinopois.scraper import KinopoiskScraper
 
 console = Console()
@@ -38,28 +30,37 @@ def print_header():
 
 def print_status():
     """Print current project status."""
-    table = Table(title="Project Status", show_header=True, header_style="bold magenta")
-    table.add_column("Resource", style="cyan")
-    table.add_column("Count", style="green")
-    table.add_column("Path", style="dim")
+    db_path = config.data_dir / "kinopois.db"
 
-    # Count files
-    posters_count = len(list(config.posters_dir.glob("*.jpg"))) if config.posters_dir.exists() else 0
-    collages_count = len(list(config.collages_dir.glob("*.jpg"))) if config.collages_dir.exists() else 0
+    if not db_path.exists():
+        console.print("[yellow]Database not found. Download movies first.[/yellow]\n")
+        return
 
-    table.add_row("Posters", str(posters_count), str(config.posters_dir))
-    table.add_row("Collages", str(collages_count), str(config.collages_dir))
+    with Database() as db:
+        stats = db.get_stats()
 
-    # Cache files
-    cache_files = []
-    if config.cache_dir.exists():
-        for csv_file in ["movies.csv", "movies_clean.csv", "collages.csv", "pins.csv"]:
-            if (config.cache_dir / csv_file).exists():
-                cache_files.append(csv_file)
+        table = Table(title="Project Status", show_header=True, header_style="bold magenta")
+        table.add_column("Resource", style="cyan")
+        table.add_column("Count", style="green")
+        table.add_column("Path", style="dim")
 
-    table.add_row("Cache files", str(len(cache_files)), str(config.cache_dir))
+        # Count files
+        posters_count = len(list(config.posters_dir.glob("*.jpg"))) if config.posters_dir.exists() else 0
+        collages_count = len(list(config.collages_dir.glob("*.jpg"))) if config.collages_dir.exists() else 0
 
-    console.print(table)
+        table.add_row("Movies", str(stats['movies']), str(db_path))
+        table.add_row("Collages", str(stats['collages']), str(config.collages_dir))
+        table.add_row("Posters", str(posters_count), str(config.posters_dir))
+
+        console.print(table)
+
+        # Show top genres
+        if stats['by_genre']:
+            console.print()
+            console.print("[dim]Top genres:[/dim]")
+            for genre, count in list(stats['by_genre'].items())[:5]:
+                console.print(f"  [cyan]{genre}:[/cyan] {count} movies")
+
     console.print()
 
 
@@ -78,9 +79,10 @@ async def download_menu():
 
     if not config.kinopoisk_api_key:
         console.print("[red]Error: KINOPOISK_API_KEY is not set![/red]")
-        if await questionary.Confirm("Enter API key now?", default=True).ask_async():
+        if await questionary.confirm("Enter API key now?", default=True).ask_async():
             config.kinopoisk_api_key = await questionary.password("API Key:").ask_async()
         else:
+            input("\nPress Enter to continue...")
             return
 
     console.print(f"[cyan]Downloading {limit} movies...[/cyan]")
@@ -88,33 +90,8 @@ async def download_menu():
     scraper = KinopoiskScraper(config.kinopoisk_api_key)
     scraper.download_and_save(limit=limit)
 
-    console.print("[green]✓ Download complete![/green]")
-    await questionary.press_any_key_to_continue().ask_async()
-
-
-async def process_menu():
-    """Process menu."""
-    console.print("[bold yellow]🔄 Process Data[/bold yellow]")
-    console.print()
-
-    input_csv = config.cache_dir / "movies.csv"
-    output_csv = config.cache_dir / "movies_clean.csv"
-
-    if not input_csv.exists():
-        console.print(f"[red]Error: {input_csv} not found![/red]")
-        console.print("Run 'Download' first to get movie data.")
-        await questionary.press_any_key_to_continue().ask_async()
-        return
-
-    console.print(f"[dim]Input:  {input_csv}[/dim]")
-    console.print(f"[dim]Output: {output_csv}[/dim]")
-    console.print()
-
-    processor = load_movies(input_csv)
-    processor.clean(output_csv)
-
-    console.print("[green]✓ Processing complete![/green]")
-    await questionary.press_any_key_to_continue().ask_async()
+    console.print("[green]OK Download complete![/green]")
+    input("\nPress Enter to continue...")
 
 
 async def collage_menu():
@@ -122,16 +99,15 @@ async def collage_menu():
     console.print("[bold yellow]🖼️  Create Collages[/bold yellow]")
     console.print()
 
-    input_csv = config.cache_dir / "movies_clean.csv"
-
-    if not input_csv.exists():
-        console.print(f"[red]Error: {input_csv} not found![/red]")
-        console.print("Run 'Process Data' first.")
-        await questionary.press_any_key_to_continue().ask_async()
+    db_path = config.data_dir / "kinopois.db"
+    if not db_path.exists():
+        console.print("[red]Error: No database found![/red]")
+        console.print("Run 'Download' first.")
+        input("\nPress Enter to continue...")
         return
 
     # Ask for watermark
-    add_watermark = await questionary.Confirm("Add watermark?", default=True).ask_async()
+    add_watermark = await questionary.confirm("Add watermark?", default=True).ask_async()
     watermark = ""
     if add_watermark:
         watermark = await questionary.text(
@@ -140,7 +116,7 @@ async def collage_menu():
         ).ask_async()
 
     # Ask for max per genre
-    limit_genre = await questionary.Confirm("Limit collages per genre?", default=False).ask_async()
+    limit_genre = await questionary.confirm("Limit collages per genre?", default=False).ask_async()
     max_per_genre = None
     if limit_genre:
         max_str = await questionary.text("Maximum per genre:", default="5").ask_async()
@@ -149,32 +125,18 @@ async def collage_menu():
     console.print("[cyan]Creating collages...[/cyan]")
 
     create_collages(
-        input_csv=input_csv,
         watermark=watermark if add_watermark else None,
         max_per_genre=max_per_genre,
     )
 
-    console.print("[green]✓ Collages created![/green]")
-    await questionary.press_any_key_to_continue().ask_async()
+    console.print("[green]OK Collages created![/green]")
+    input("\nPress Enter to continue...")
 
 
 async def mark_menu():
     """Mark posters menu."""
     console.print("[bold yellow]✏️  Mark Posters[/bold yellow]")
     console.print()
-
-    # Choose source
-    source = await questionary.select(
-        "Mark all posters or specific files?",
-        choices=[
-            questionary.Choice("All posters in data/posters", "all"),
-            questionary.Choice("From CSV file", "csv"),
-            questionary.Choice("← Back", "back"),
-        ],
-    ).ask_async()
-
-    if source == "back":
-        return
 
     # Get watermark text
     watermark = await questionary.text(
@@ -192,21 +154,11 @@ async def mark_menu():
         ],
     ).ask_async()
 
-    if source == "all":
-        console.print(f"[cyan]Marking posters in {config.posters_dir}...[/cyan]")
-        mark_posters(config.posters_dir, watermark, position)
-    else:  # csv
-        csv_path = await questionary.path(
-            "Path to CSV file:",
-            default=str(config.cache_dir / "movies.csv"),
-        ).ask_async()
+    console.print(f"[cyan]Marking posters in {config.posters_dir}...[/cyan]")
+    mark_posters(config.posters_dir, watermark, position)
 
-        console.print("[cyan]Marking from CSV...[/cyan]")
-        marker = PosterMarker(text=watermark, position=position)
-        marker.mark_from_csv(Path(csv_path))
-
-    console.print("[green]✓ Marking complete![/green]")
-    await questionary.press_any_key_to_continue().ask_async()
+    console.print("[green]OK Marking complete![/green]")
+    input("\nPress Enter to continue...")
 
 
 async def export_menu():
@@ -217,8 +169,7 @@ async def export_menu():
     format_choice = await questionary.select(
         "Export format:",
         choices=[
-            questionary.Choice("Pinterest CSV (with titles)", "pinterest"),
-            questionary.Choice("Simple CSV (genre, file, link)", "simple"),
+            questionary.Choice("Pinterest CSV", "pinterest"),
             questionary.Choice("Summary statistics", "summary"),
             questionary.Choice("← Back", "back"),
         ],
@@ -227,17 +178,27 @@ async def export_menu():
     if format_choice == "back":
         return
 
-    collages_csv = config.cache_dir / "collages.csv"
+    db_path = config.data_dir / "kinopois.db"
+    if not db_path.exists():
+        console.print("[red]Error: No database found![/red]")
+        input("\nPress Enter to continue...")
+        return
 
-    if format_choice == "summary":
-        export_summary(collages_csv, config.cache_dir / "movies_clean.csv")
-    elif format_choice == "pinterest":
-        export_pinterest_csv(collages_csv)
-    else:  # simple
-        export_simple_collages_csv(collages_csv)
+    with Database() as db:
+        if format_choice == "summary":
+            stats = db.get_stats()
+            console.print("\n[bold]Database Statistics:[/bold]")
+            console.print(f"  Movies: {stats['movies']}")
+            console.print(f"  Collages: {stats['collages']}")
+            if stats['by_genre']:
+                console.print("\n  [bold]By Genre:[/bold]")
+                for genre, count in list(stats['by_genre'].items())[:10]:
+                    console.print(f"    {genre}: {count}")
+        elif format_choice == "pinterest":
+            export_for_pinterest(db)
 
-    console.print("[green]✓ Export complete![/green]")
-    await questionary.press_any_key_to_continue().ask_async()
+    console.print("[green]OK Export complete![/green]")
+    input("\nPress Enter to continue...")
 
 
 async def clean_menu():
@@ -248,8 +209,9 @@ async def clean_menu():
     choices = await questionary.checkbox(
         "What to clean?",
         choices=[
-            questionary.Choice("Cache (CSV files)", "cache"),
+            questionary.Choice("Database (kinopois.db)", "db"),
             questionary.Choice("Collages", "collages"),
+            questionary.Choice("Posters", "posters"),
             questionary.Choice("All data", "all"),
         ],
         validate=lambda x: len(x) > 0,
@@ -258,35 +220,48 @@ async def clean_menu():
     if not choices:
         return
 
-    confirm = await questionary.Confirm(
+    import shutil
+
+    confirm = await questionary.confirm(
         f"This will delete: {', '.join(choices)}. Continue?",
         default=False,
     ).ask_async()
 
     if not confirm:
         console.print("[yellow]Cancelled.[/yellow]")
-        await questionary.press_any_key_to_continue().ask_async()
+        input("\nPress Enter to continue...")
         return
 
-    import shutil
-
     if "all" in choices:
-        if config.cache_dir.exists():
-            shutil.rmtree(config.cache_dir)
-            config.cache_dir.mkdir(parents=True, exist_ok=True)
+        db_path = config.data_dir / "kinopois.db"
+        if db_path.exists():
+            db_path.unlink()
+            console.print(f"[cyan]Removed: {db_path}[/cyan]")
         if config.collages_dir.exists():
             shutil.rmtree(config.collages_dir)
             config.collages_dir.mkdir(parents=True, exist_ok=True)
+            console.print(f"[cyan]Cleared: {config.collages_dir}[/cyan]")
+        if config.posters_dir.exists():
+            shutil.rmtree(config.posters_dir)
+            config.posters_dir.mkdir(parents=True, exist_ok=True)
+            console.print(f"[cyan]Cleared: {config.posters_dir}[/cyan]")
     else:
-        if "cache" in choices and config.cache_dir.exists():
-            shutil.rmtree(config.cache_dir)
-            config.cache_dir.mkdir(parents=True, exist_ok=True)
+        if "db" in choices:
+            db_path = config.data_dir / "kinopois.db"
+            if db_path.exists():
+                db_path.unlink()
+                console.print(f"[cyan]Removed: {db_path}[/cyan]")
         if "collages" in choices and config.collages_dir.exists():
             shutil.rmtree(config.collages_dir)
             config.collages_dir.mkdir(parents=True, exist_ok=True)
+            console.print(f"[cyan]Cleared: {config.collages_dir}[/cyan]")
+        if "posters" in choices and config.posters_dir.exists():
+            shutil.rmtree(config.posters_dir)
+            config.posters_dir.mkdir(parents=True, exist_ok=True)
+            console.print(f"[cyan]Cleared: {config.posters_dir}[/cyan]")
 
-    console.print("[green]✓ Clean complete![/green]")
-    await questionary.press_any_key_to_continue().ask_async()
+    console.print("[green]OK Clean complete![/green]")
+    input("\nPress Enter to continue...")
 
 
 async def settings_menu():
@@ -324,24 +299,24 @@ async def settings_menu():
         new_key = await questionary.password("Enter new API Key:").ask_async()
         if new_key:
             config.kinopoisk_api_key = new_key
-            console.print("[green]✓ API Key updated![/green]")
+            console.print("[green]OK API Key updated![/green]")
     elif action == "watermark":
         new_text = await questionary.text(
             "Enter watermark text:",
             default=config.watermark_text,
         ).ask_async()
         config.watermark_text = new_text
-        console.print("[green]✓ Watermark updated![/green]")
+        console.print("[green]OK Watermark updated![/green]")
     elif action == "max_genre":
         new_max = await questionary.text(
             "Max collages per genre (empty for unlimited):",
             default=str(config.collage_max_per_genre or ""),
         ).ask_async()
         config.collage_max_per_genre = int(new_max) if new_max.isdigit() else None
-        console.print("[green]✓ Setting updated![/green]")
+        console.print("[green]OK Setting updated![/green]")
 
     console.print()
-    await questionary.press_any_key_to_continue().ask_async()
+    input("\nPress Enter to continue...")
 
 
 async def main_menu():
@@ -355,7 +330,6 @@ async def main_menu():
             choices=[
                 questionary.Separator(),
                 questionary.Choice("📥 Download posters", "download"),
-                questionary.Choice("🔄 Process data", "process"),
                 questionary.Choice("🖼️  Create collages", "collage"),
                 questionary.Choice("✏️  Mark posters", "mark"),
                 questionary.Choice("📤 Export data", "export"),
@@ -371,8 +345,6 @@ async def main_menu():
             break
         elif choice == "download":
             await download_menu()
-        elif choice == "process":
-            await process_menu()
         elif choice == "collage":
             await collage_menu()
         elif choice == "mark":
@@ -393,10 +365,3 @@ def interactive():
         asyncio.run(main_menu())
     except KeyboardInterrupt:
         console.print("\n[yellow]Interrupted by user[/yellow]")
-
-
-@click.command()
-@click.pass_context
-def interactive_cmd(ctx):
-    """Launch interactive menu mode."""
-    interactive()

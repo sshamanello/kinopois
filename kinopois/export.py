@@ -1,17 +1,15 @@
 """Export functionality for collages and metadata."""
 
-import csv
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Optional
 
 from rich.console import Console
 
 from kinopois.config import config
-from kinopois.utils import read_csv_dict, safe_filename, write_csv_dict
+from kinopois.database import Database
 
 console = Console()
-
 
 # Pinterest-style titles templates
 TITLE_TEMPLATES = [
@@ -59,183 +57,129 @@ TITLE_TEMPLATES = [
 ]
 
 
-def export_pinterest_csv(
-    input_csv: Path,
-    output_csv: Optional[Path] = None,
-    base_url: Optional[str] = None,
-    bot_url: Optional[str] = None,
-) -> Path:
-    """Export collages to Pinterest-style CSV format.
-
-    Args:
-        input_csv: Path to collages CSV with film1-4 columns.
-        output_csv: Path to output CSV. Defaults to cache_dir/pins.csv.
-        base_url: Base URL for images. Defaults to config.base_image_url.
-        bot_url: Bot URL for descriptions. Defaults to config.bot_url.
-
-    Returns:
-        Path to output CSV.
-    """
-    if output_csv is None:
-        output_csv = config.cache_dir / "pins.csv"
-
-    base_url = base_url or config.base_image_url
-    bot_url = bot_url or config.bot_url
-
-    # Load collages
-    collages = read_csv_dict(input_csv, config.csv_delimiter, config.csv_encoding)
-
-    if not collages:
-        console.print("[yellow]No collages found in CSV[/yellow]")
-        return output_csv
-
-    # Generate pins
-    pins = []
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    for i, collage in enumerate(collages):
-        if i >= len(TITLE_TEMPLATES):
-            break
-
-        genre = collage.get("genre", "")
-        collage_file = collage.get("collage_file", "")
-        films = [collage.get(f"film{j}", "") for j in range(1, 5)]
-        films_list = ", ".join([f for f in films if f])
-
-        title = TITLE_TEMPLATES[i]
-        filename = Path(collage_file).name
-        image_url = f"{base_url}/{filename}"
-
-        description = (
-            f"{title}. Фильмы в подборке: {films_list}.\n"
-            f"Напиши нашему кино-боту в Telegram, чтобы быстро найти фильмы под настроение: {bot_url}"
-        )
-
-        keywords = f"фильмы,{genre},подборка,что посмотреть,кино на вечер"
-
-        pins.append({
-            "id": i + 1,
-            "image_url": image_url,
-            "title": title,
-            "description": description,
-            "keywords": keywords,
-            "category": "Фильмы",
-            "board": "Фильмы на вечер",
-            "board_id": "",
-            "status": "pending",
-            "created_at": now_str,
-            "posted_at": "",
-            "notes": "",
-        })
-
-    # Write CSV
-    fieldnames = [
-        "id",
-        "image_url",
-        "title",
-        "description",
-        "keywords",
-        "category",
-        "board",
-        "board_id",
-        "status",
-        "created_at",
-        "posted_at",
-        "notes",
-    ]
-
-    write_csv_dict(output_csv, pins, fieldnames, config.csv_delimiter, config.csv_encoding)
-
-    console.print(f"[green]Exported {len(pins)} pins to {output_csv}[/green]")
-    return output_csv
-
-
-def export_simple_collages_csv(
-    input_csv: Path,
-    output_csv: Optional[Path] = None,
-    bot_url: Optional[str] = None,
-) -> Path:
-    """Export collages to simple CSV format (genre, file, link).
-
-    Args:
-        input_csv: Path to collages CSV.
-        output_csv: Path to output CSV. Defaults to cache_dir/collages_export.csv.
-        bot_url: Bot URL for link column. Defaults to config.bot_url.
-
-    Returns:
-        Path to output CSV.
-    """
-    if output_csv is None:
-        output_csv = config.cache_dir / "collages_export.csv"
-
-    bot_url = bot_url or config.bot_url
-
-    # Load and transform
-    collages = read_csv_dict(input_csv, config.csv_delimiter, config.csv_encoding)
-
-    exported = []
-    for collage in collages:
-        exported.append({
-            "genre": collage.get("genre", ""),
-            "collage_file": collage.get("collage_file", ""),
-            "link": bot_url,
-        })
-
-    # Write CSV
-    fieldnames = ["genre", "collage_file", "link"]
-    write_csv_dict(output_csv, exported, fieldnames, config.csv_delimiter, config.csv_encoding)
-
-    console.print(f"[green]Exported {len(exported)} collages to {output_csv}[/green]")
-    return output_csv
-
-
-def export_summary(
-    collages_csv: Path,
-    movies_csv: Path,
+def export_for_pinterest(
+    db: Database,
     output_path: Optional[Path] = None,
 ) -> Path:
-    """Export a summary text file with statistics.
+    """Export collages from database to Pinterest CSV format.
 
     Args:
-        collages_csv: Path to collages CSV.
-        movies_csv: Path to movies CSV.
-        output_path: Path to output text file.
+        db: Database instance.
+        output_path: Path to output CSV. Defaults to data/pins.csv.
 
     Returns:
-        Path to output file.
+        Path to output CSV.
     """
     if output_path is None:
-        output_path = config.cache_dir / "summary.txt"
+        output_path = config.data_dir / "pins.csv"
 
-    # Load data
-    collages = read_csv_dict(collages_csv, config.csv_delimiter, config.csv_encoding)
-    movies = read_csv_dict(movies_csv, config.csv_delimiter, config.csv_encoding)
+    collages = db.get_collages()
 
-    # Count by genre
-    genre_counts = {}
-    for collage in collages:
-        genre = collage.get("genre", "unknown")
-        genre_counts[genre] = genre_counts.get(genre, 0) + 1
+    if not collages:
+        console.print("[yellow]No collages found in database[/yellow]")
+        return output_path
 
-    # Write summary
-    lines = [
-        "KINOPOIS SUMMARY",
-        "=" * 50,
-        f"Total movies: {len(movies)}",
-        f"Total collages: {len(collages)}",
-        "",
-        "Collages by genre:",
-    ]
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    for genre, count in sorted(genre_counts.items()):
-        lines.append(f"  {genre}: {count}")
+    with open(output_path, "w", newline="", encoding=config.csv_encoding) as f:
+        f.write("id;image_url;title;description;keywords;category;board;board_id;status;created_at;posted_at;notes\n")
 
-    lines.extend([
-        "",
-        f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-    ])
+        for i, collage in enumerate(collages):
+            if i >= len(TITLE_TEMPLATES):
+                break
 
-    output_path.write_text("\n".join(lines), encoding="utf-8")
-    console.print(f"[green]Summary saved to {output_path}[/green]")
+            title = TITLE_TEMPLATES[i]
+            filename = collage.collage_file
+            image_url = f"{config.base_image_url}/{filename}"
 
+            films_list = ", ".join([collage.film1, collage.film2, collage.film3, collage.film4])
+
+            description = (
+                f"{title}. Фильмы в подборке: {films_list}.\n"
+                f"Напиши нашему кино-боту в Telegram, чтобы быстро найти фильмы под настроение: {config.bot_url}"
+            )
+
+            keywords = f"фильмы,{collage.genre},подборка,что посмотреть,кино на вечер"
+
+            f.write(
+                f"{i + 1};{image_url};{title};\"{description}\";{keywords};Фильмы;"
+                f"Фильмы на вечер;;pending;{now_str};;\n"
+            )
+
+    console.print(f"[green]Exported {len(collages)} pins to {output_path}[/green]")
+    return output_path
+
+
+def export_for_n8n(
+    db: Database,
+    output_path: Optional[Path] = None,
+) -> Path:
+    """Export collages to CSV format optimized for n8n → Pinterest automation.
+
+    CSV columns:
+    - image_url: Direct link to collage image
+    - title: Hook title (e.g., "4 мелодрамы, которые хочется смотреть запоем")
+    - description: Description with film names and bot CTA
+    - board: Pinterest board name
+    - genre: Film genre for categorization
+
+    Args:
+        db: Database instance.
+        output_path: Path to output CSV. Defaults to data/pinterest_n8n.csv.
+
+    Returns:
+        Path to output CSV.
+    """
+    if output_path is None:
+        output_path = config.data_dir / "pinterest_n8n.csv"
+
+    collages = db.get_collages()
+
+    if not collages:
+        console.print("[yellow]No collages found in database[/yellow]")
+        return output_path
+
+    with open(output_path, "w", newline="", encoding=config.csv_encoding) as f:
+        # Header for n8n → Pinterest
+        f.write("image_url;title;description;board;genre\n")
+
+        for i, collage in enumerate(collages):
+            if i >= len(TITLE_TEMPLATES):
+                break
+
+            title = TITLE_TEMPLATES[i]
+            filename = collage.collage_file
+            image_url = f"{config.base_image_url}/{filename}"
+
+            films_list = ", ".join([collage.film1, collage.film2, collage.film3, collage.film4])
+
+            # Rich description for Pinterest
+            description = (
+                f"{title}\n\n"
+                f"🎬 Фильмы в подборке:\n"
+                f"• {collage.film1}\n"
+                f"• {collage.film2}\n"
+                f"• {collage.film3}\n"
+                f"• {collage.film4}\n\n"
+                f"🤖 Хочешь больше подборок под настроение? Напиши нашему кино-боту в Telegram!\n"
+                f"{config.bot_url}"
+            )
+
+            # Pinterest board name based on genre
+            board_map = {
+                "драма": "Драмы",
+                "комедия": "Комедии",
+                "мелодрама": "Мелодрамы",
+                "трилер": "Триллеры",
+                "детектив": "Детективы",
+                "боевик": "Боевики",
+                "документальный": "Документальное кино",
+                "мультфильм": "Мультфильмы",
+                "аниме": "Аниме",
+            }
+            board = board_map.get(collage.genre.lower(), "Фильмы")
+
+            f.write(f'{image_url};"{title}";"{description}";{board};{collage.genre}\n')
+
+    console.print(f"[green]Exported {min(len(collages), len(TITLE_TEMPLATES))} pins to {output_path}[/green]")
     return output_path

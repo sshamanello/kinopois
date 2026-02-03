@@ -1,15 +1,14 @@
 """Collage creation for movie posters."""
 
-import csv
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 from PIL import Image, ImageDraw, ImageFont
 from rich.console import Console
 
 from kinopois.config import config
-from kinopois.processor import load_clean_movies
-from kinopois.utils import safe_filename, write_csv_dict
+from kinopois.database import Database, Collage
+from kinopois.utils import safe_filename
 
 console = Console()
 
@@ -122,38 +121,68 @@ class CollageCreator:
         # Draw text
         draw.text((x, y), self.watermark_text, font=font, fill=(255, 255, 255, 255))
 
-    def create_from_movies(
-        self,
-        groups: Dict[str, List[Dict[str, Any]]],
-        output_dir: Optional[Path] = None,
-    ) -> List[Dict[str, Any]]:
-        """Create collages from grouped movies.
 
-        Args:
-            groups: Dictionary mapping genre to list of movies.
-            output_dir: Directory to save collages. Defaults to config.collages_dir.
+def create_collages(
+    output_dir: Optional[Path] = None,
+    watermark: Optional[str] = None,
+    max_per_genre: Optional[int] = None,
+) -> int:
+    """Create collages from movies in database.
 
-        Returns:
-            List of collage metadata dictionaries.
-        """
-        if output_dir is None:
-            output_dir = config.collages_dir
+    Args:
+        output_dir: Directory to save collages.
+        watermark: Watermark text. Defaults to config.watermark_text.
+        max_per_genre: Maximum collages per genre.
 
-        output_dir.mkdir(parents=True, exist_ok=True)
-        collages = []
+    Returns:
+        Number of collages created.
+    """
+    if output_dir is None:
+        output_dir = config.collages_dir
 
-        for genre, movies in groups.items():
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create collage creator
+    creator = CollageCreator(
+        tile_width=config.collage_tile_width,
+        tile_height=config.collage_tile_height,
+        watermark_text=watermark or config.watermark_text,
+        max_per_genre=max_per_genre or config.collage_max_per_genre,
+    )
+
+    # Get movies grouped by genre from database
+    with Database() as db:
+        genre_groups = db.get_movies_by_genre()
+
+        # Get existing collages to continue numbering
+        existing_collages = db.get_collages()
+        max_index_by_genre = {}
+        for c in existing_collages:
+            if c.genre not in max_index_by_genre:
+                max_index_by_genre[c.genre] = 0
+            # Extract number from filename like "драма_01.jpg"
+            if "_" in c.collage_file:
+                try:
+                    num = int(c.collage_file.split("_")[-1].replace(".jpg", ""))
+                    max_index_by_genre[c.genre] = max(max_index_by_genre[c.genre], num)
+                except:
+                    pass
+
+        created_count = 0
+
+        for genre, movies in genre_groups.items():
             if len(movies) < 4:
                 console.print(f"[yellow]Skipping {genre}: only {len(movies)} movies[/yellow]")
                 continue
 
-            collage_index = 1
+            # Start from next number after existing
+            collage_index = max_index_by_genre.get(genre, 0) + 1
             for i in range(0, len(movies), 4):
                 batch = movies[i : i + 4]
                 if len(batch) < 4:
                     break
 
-                if self.max_per_genre and collage_index > self.max_per_genre:
+                if creator.max_per_genre and collage_index > creator.max_per_genre:
                     break
 
                 # Create collage
@@ -162,67 +191,26 @@ class CollageCreator:
                 output_path = output_dir / filename
 
                 try:
-                    self.create_collage([m["poster_file"] for m in batch], output_path)
+                    creator.create_collage([m.poster_file for m in batch], output_path)
 
-                    collages.append({
-                        "genre": genre,
-                        "collage_file": filename,
-                        "film1": batch[0]["title"],
-                        "film2": batch[1]["title"],
-                        "film3": batch[2]["title"],
-                        "film4": batch[3]["title"],
-                    })
+                    # Save to database
+                    collage = Collage(
+                        id=None,
+                        genre=genre,
+                        collage_file=filename,
+                        film1=batch[0].title,
+                        film2=batch[1].title,
+                        film3=batch[2].title,
+                        film4=batch[3].title,
+                    )
+                    db.add_collage(collage)
 
                     console.print(f"[green]Created:[/green] {filename}")
+                    created_count += 1
                     collage_index += 1
 
                 except Exception as e:
                     console.print(f"[red]Error creating collage for {genre}: {e}[/red]")
 
-        console.print(f"[green]Created {len(collages)} collages[/green]")
-        return collages
-
-
-def create_collages(
-    input_csv: Optional[Path] = None,
-    output_dir: Optional[Path] = None,
-    output_csv: Optional[Path] = None,
-    watermark: Optional[str] = None,
-    max_per_genre: Optional[int] = None,
-) -> Path:
-    """Create collages from cleaned movie CSV.
-
-    Args:
-        input_csv: Path to movies_clean.csv.
-        output_dir: Directory to save collages.
-        output_csv: Path to save collages metadata CSV.
-        watermark: Watermark text. Defaults to config.watermark_text.
-        max_per_genre: Maximum collages per genre.
-
-    Returns:
-        Path to output CSV with collage metadata.
-    """
-    # Load movies
-    processor = load_clean_movies(input_csv)
-    groups = processor.group_by_genre()
-
-    # Create collages
-    creator = CollageCreator(
-        tile_width=config.collage_tile_width,
-        tile_height=config.collage_tile_height,
-        watermark_text=watermark or config.watermark_text,
-        max_per_genre=max_per_genre or config.collage_max_per_genre,
-    )
-
-    collages = creator.create_from_movies(groups, output_dir)
-
-    # Save metadata
-    if output_csv is None:
-        output_csv = config.cache_dir / "collages.csv"
-
-    if collages:
-        fieldnames = ["genre", "collage_file", "film1", "film2", "film3", "film4"]
-        write_csv_dict(output_csv, collages, fieldnames, config.csv_delimiter, config.csv_encoding)
-        console.print(f"[green]Collage metadata saved to {output_csv}[/green]")
-
-    return output_csv
+    console.print(f"[green]Created {created_count} collages[/green]")
+    return created_count

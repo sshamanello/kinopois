@@ -66,6 +66,8 @@ data/cache/
 *.log
 .DS_Store
 
-# Generated files (keep data/ structure but ignore content)
-# data/posters/
-# data/collages/
+# Generated files (keep structure but ignore content)
+data/posters/*.jpg
+data/collages/*.jpg
+data/*.csv
+data/kinopois.db

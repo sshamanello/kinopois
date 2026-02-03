@@ -31,6 +31,13 @@ class Config:
     year_min: int = 2000
     year_max: int = 2025
 
+    # Rate limiting
+    rate_limit_requests_per_second: float = 3.0
+    rate_limit_retry_attempts: int = 3
+    rate_limit_initial_delay: float = 1.0
+    rate_limit_max_delay: float = 60.0
+    rate_limit_backoff_multiplier: float = 2.0
+
     # Collage settings
     collage_tile_width: int = 500
     collage_tile_height: int = 750
@@ -70,6 +77,11 @@ class Config:
             watermark_position=os.getenv("WATERMARK_POSITION", "bottom"),
             bot_url=os.getenv("BOT_URL", "https://t.me/TopTrailer82Bot"),
             base_image_url=os.getenv("BASE_IMAGE_URL", "https://sshamanello.ru/collages"),
+            rate_limit_requests_per_second=float(os.getenv("RATE_LIMIT_RPS", "3.0")),
+            rate_limit_retry_attempts=int(os.getenv("RATE_LIMIT_RETRIES", "3")),
+            rate_limit_initial_delay=float(os.getenv("RATE_LIMIT_INITIAL_DELAY", "1.0")),
+            rate_limit_max_delay=float(os.getenv("RATE_LIMIT_MAX_DELAY", "60.0")),
+            rate_limit_backoff_multiplier=float(os.getenv("RATE_LIMIT_BACKOFF_MULTIPLIER", "2.0")),
         )
 
 

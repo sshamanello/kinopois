@@ -207,6 +207,36 @@ black kinopois/
 ruff check kinopois/
 ```
 
+## n8n + Pinterest (SQLite queue)
+
+Для автоматической публикации без HTTP-слоя:
+
+```bash
+# 1) Сгенерировать pins.csv как раньше
+kinopois export --format pinterest
+
+# 2) Инициализировать БД и синхронизировать очередь
+kinopois db-init
+kinopois queue-sync
+
+# 3) Получить ready jobs (JSON для n8n)
+kinopois queue-ready --limit 20
+
+# 4) После успешной публикации
+kinopois queue-posted --job-id 1 --pin-id <pinterest_pin_id>
+
+# 5) Если ошибка публикации
+kinopois queue-failed --job-id 1 --error "Pinterest API 429"
+```
+
+Рекомендуемый flow в n8n:
+1. Execute Command: `kinopois queue-ready --limit 20`
+2. Split items
+3. Pinterest publish node
+4. Execute Command на каждый item:
+   - success: `kinopois queue-posted --job-id {{$json.id}} --pin-id {{$json.pin_id}}`
+   - fail: `kinopois queue-failed --job-id {{$json.id}} --error "{{$json.error}}"`
+
 ## CLI Commands Reference
 
 | Command | Description | Mode |

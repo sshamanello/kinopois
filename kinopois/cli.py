@@ -14,6 +14,7 @@ from kinopois.export import (
     export_simple_collages_csv,
     export_summary,
 )
+from kinopois.db import init_db, sync_pins_csv, get_ready_jobs, mark_posted, mark_failed
 from kinopois.marker import mark_posters, PosterMarker
 from kinopois.processor import load_clean_movies, load_movies
 from kinopois.scraper import KinopoiskScraper
@@ -352,6 +353,56 @@ def info(ctx):
         console.print("\n".join(cache_files))
     else:
         console.print("  Cache files:  (none)")
+
+
+@main.command("db-init")
+def db_init_cmd():
+    """Initialize SQLite database for publish queue."""
+    path = init_db()
+    console.print(f"[green]✓ DB initialized: {path}[/green]")
+
+
+@main.command("queue-sync")
+@click.option(
+    "--pins-csv",
+    type=click.Path(exists=True, path_type=Path),
+    help="Pins CSV path (default: data/cache/pins.csv)",
+)
+def queue_sync_cmd(pins_csv):
+    """Import/export pins.csv rows into SQLite queue with dedupe."""
+    csv_path = pins_csv or (config.cache_dir / "pins.csv")
+    if not csv_path.exists():
+        console.print(f"[red]Error: pins csv not found: {csv_path}[/red]")
+        raise click.Abort()
+    inserted = sync_pins_csv(csv_path)
+    console.print(f"[green]✓ Queue synced, inserted: {inserted}[/green]")
+
+
+@main.command("queue-ready")
+@click.option("--limit", default=20, type=int, help="How many ready jobs to show")
+def queue_ready_cmd(limit):
+    """Print ready jobs as JSON (for n8n Execute Command node)."""
+    import json
+    rows = get_ready_jobs(limit=limit)
+    click.echo(json.dumps(rows, ensure_ascii=False))
+
+
+@main.command("queue-posted")
+@click.option("--job-id", required=True, type=int, help="Queue job id")
+@click.option("--pin-id", required=True, help="Pinterest pin id")
+def queue_posted_cmd(job_id, pin_id):
+    """Mark queue job as posted."""
+    mark_posted(job_id, pin_id)
+    console.print(f"[green]✓ Job {job_id} marked posted[/green]")
+
+
+@main.command("queue-failed")
+@click.option("--job-id", required=True, type=int, help="Queue job id")
+@click.option("--error", required=True, help="Error message")
+def queue_failed_cmd(job_id, error):
+    """Mark queue job as failed and increment retries."""
+    mark_failed(job_id, error)
+    console.print(f"[yellow]⚠ Job {job_id} marked failed[/yellow]")
 
 
 @main.command()

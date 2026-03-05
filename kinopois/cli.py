@@ -277,6 +277,49 @@ def run(ctx, all, limit, skip_download):
     console.print("\n[green]✓ Pipeline complete![/green]")
 
 
+@main.command("run-prod")
+@click.option("--limit", default=200, help="Number of movies to download")
+@click.option("--skip-download", is_flag=True, help="Skip download step")
+@click.option("--watermark-text", default="", help="Optional watermark text; empty = no watermark")
+@click.option("--max-per-genre", default=1, type=int, help="How many collages per genre (1 collage = 4 titles)")
+@click.pass_context
+def run_prod(ctx, limit, skip_download, watermark_text, max_per_genre):
+    """Production pipeline: download -> process -> collage(4-per-category) -> export -> queue sync."""
+    if not config.kinopoisk_api_key and not skip_download:
+        console.print("[red]Error: KINOPOISK_API_KEY is required for download[/red]")
+        raise click.Abort()
+
+    console.print("[bold cyan]Starting run-prod pipeline...[/bold cyan]")
+
+    if not skip_download:
+        console.print("\n[bold]Step 1: Download[/bold]")
+        ctx.invoke(download, limit=limit)
+
+    console.print("\n[bold]Step 2: Process[/bold]")
+    ctx.invoke(process)
+
+    console.print("\n[bold]Step 3: Collage (4 titles per category)[/bold]")
+    collage_kwargs = {"max_per_genre": max_per_genre}
+    if (watermark_text or "").strip():
+        collage_kwargs["watermark"] = watermark_text.strip()
+    ctx.invoke(collage, **collage_kwargs)
+
+    console.print("\n[bold]Step 4: Export Pinterest CSV[/bold]")
+    ctx.invoke(export, format="pinterest")
+
+    console.print("\n[bold]Step 5: Queue sync (SQLite)[/bold]")
+    init_db()
+    pins_csv = config.cache_dir / "pins.csv"
+    if not pins_csv.exists():
+        console.print(f"[red]Error: {pins_csv} not found after export[/red]")
+        raise click.Abort()
+    inserted = sync_pins_csv(pins_csv)
+    ready = len(get_ready_jobs(limit=1000000))
+    console.print(f"[green]✓ Queue synced. Inserted: {inserted} | Ready total: {ready}[/green]")
+
+    console.print("\n[green]✓ run-prod complete[/green]")
+
+
 @main.command()
 @click.option(
     "--cache",

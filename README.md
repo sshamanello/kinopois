@@ -93,6 +93,16 @@ This launches an interactive menu where you can:
 kinopois run --all --limit 200
 ```
 
+#### Production Pipeline (for n8n queue)
+
+```bash
+# watermark optional; one collage per genre (4 titles)
+kinopois run-prod --limit 200 --max-per-genre 1 --watermark-text "@YourWatermark"
+
+# without watermark
+kinopois run-prod --limit 200 --max-per-genre 1
+```
+
 This will:
 1. Download 200 movies with posters
 2. Process and clean the data

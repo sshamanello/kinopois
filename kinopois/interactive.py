@@ -21,6 +21,14 @@ from kinopois.export import (
 from kinopois.marker import mark_posters, PosterMarker
 from kinopois.processor import load_clean_movies, load_movies
 from kinopois.scraper import KinopoiskScraper
+from kinopois.db import (
+    init_db,
+    sync_pins_csv,
+    get_ready_jobs,
+    mark_posted,
+    mark_failed,
+    get_conn,
+)
 
 console = Console()
 
@@ -58,6 +66,19 @@ def print_status():
                 cache_files.append(csv_file)
 
     table.add_row("Cache files", str(len(cache_files)), str(config.cache_dir))
+
+    # Queue status (SQLite)
+    try:
+        init_db()
+        with get_conn() as conn:
+            ready = conn.execute("SELECT COUNT(*) FROM publish_jobs WHERE status='ready'").fetchone()[0]
+            posted = conn.execute("SELECT COUNT(*) FROM publish_jobs WHERE status='posted'").fetchone()[0]
+            failed = conn.execute("SELECT COUNT(*) FROM publish_jobs WHERE status='failed'").fetchone()[0]
+        table.add_row("Queue ready", str(ready), str(config.cache_dir / 'kinopois.db'))
+        table.add_row("Queue posted", str(posted), str(config.cache_dir / 'kinopois.db'))
+        table.add_row("Queue failed", str(failed), str(config.cache_dir / 'kinopois.db'))
+    except Exception:
+        pass
 
     console.print(table)
     console.print()
@@ -240,6 +261,77 @@ async def export_menu():
     await questionary.press_any_key_to_continue().ask_async()
 
 
+async def queue_menu():
+    """SQLite queue menu for n8n/Pinterest automation."""
+    while True:
+        console.print("[bold yellow]🧰 Queue / n8n / Pinterest[/bold yellow]")
+        console.print()
+
+        action = await questionary.select(
+            "Queue action:",
+            choices=[
+                questionary.Choice("🗄️ Init DB", "init"),
+                questionary.Choice("🔄 Sync pins.csv -> queue", "sync"),
+                questionary.Choice("📋 Show ready jobs", "ready"),
+                questionary.Choice("✅ Mark job posted", "posted"),
+                questionary.Choice("❌ Mark job failed", "failed"),
+                questionary.Choice("← Back", "back"),
+            ],
+        ).ask_async()
+
+        if action == "back":
+            return
+
+        if action == "init":
+            path = init_db()
+            console.print(f"[green]✓ DB initialized: {path}[/green]")
+
+        elif action == "sync":
+            pins_csv = config.cache_dir / "pins.csv"
+            if not pins_csv.exists():
+                console.print(f"[red]Error: {pins_csv} not found. Run Export first.[/red]")
+            else:
+                inserted = sync_pins_csv(pins_csv)
+                console.print(f"[green]✓ Synced queue. Inserted: {inserted}[/green]")
+
+        elif action == "ready":
+            limit_str = await questionary.text("Limit:", default="20").ask_async()
+            limit = int(limit_str) if (limit_str or "").isdigit() else 20
+            rows = get_ready_jobs(limit=limit)
+            if not rows:
+                console.print("[yellow]No ready jobs.[/yellow]")
+            else:
+                t = Table(title=f"Ready jobs ({len(rows)})", show_header=True, header_style="bold magenta")
+                t.add_column("ID", style="cyan")
+                t.add_column("Title", style="green")
+                t.add_column("Board", style="yellow")
+                t.add_column("Image", style="dim")
+                for r in rows:
+                    t.add_row(str(r.get("id")), r.get("title", "")[:80], r.get("board_id") or r.get("board") or "-", r.get("image_url", "")[:60])
+                console.print(t)
+
+        elif action == "posted":
+            job_id = await questionary.text("Job ID:").ask_async()
+            pin_id = await questionary.text("Pinterest pin ID:").ask_async()
+            if (job_id or "").isdigit() and pin_id:
+                mark_posted(int(job_id), pin_id)
+                console.print(f"[green]✓ Job {job_id} marked posted[/green]")
+            else:
+                console.print("[red]Invalid job id or pin id[/red]")
+
+        elif action == "failed":
+            job_id = await questionary.text("Job ID:").ask_async()
+            err = await questionary.text("Error message:", default="Pinterest API error").ask_async()
+            if (job_id or "").isdigit():
+                mark_failed(int(job_id), err or "unknown error")
+                console.print(f"[yellow]⚠ Job {job_id} marked failed[/yellow]")
+            else:
+                console.print("[red]Invalid job id[/red]")
+
+        console.print()
+        await questionary.press_any_key_to_continue().ask_async()
+
+
 async def clean_menu():
     """Clean menu."""
     console.print("[bold yellow]🗑️  Clean Data[/bold yellow]")
@@ -359,6 +451,7 @@ async def main_menu():
                 questionary.Choice("🖼️  Create collages", "collage"),
                 questionary.Choice("✏️  Mark posters", "mark"),
                 questionary.Choice("📤 Export data", "export"),
+                questionary.Choice("🧰 Queue / n8n / Pinterest", "queue"),
                 questionary.Choice("🗑️  Clean data", "clean"),
                 questionary.Choice("⚙️  Settings", "settings"),
                 questionary.Separator(),
@@ -379,6 +472,8 @@ async def main_menu():
             await mark_menu()
         elif choice == "export":
             await export_menu()
+        elif choice == "queue":
+            await queue_menu()
         elif choice == "clean":
             await clean_menu()
         elif choice == "settings":

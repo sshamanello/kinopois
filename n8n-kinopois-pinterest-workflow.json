@@ -1,0 +1,249 @@
+{
+  "name": "Kinopois -> Pinterest (SQLite Queue)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 30
+            }
+          ]
+        }
+      },
+      "id": "cron_trigger",
+      "name": "Cron Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "command": "cd /home/nick/.openclaw/workspace/kinopois && source .venv/bin/activate && kinopois queue-ready --limit 20"
+      },
+      "id": "get_ready",
+      "name": "Get Ready Jobs",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        450,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $json.stdout || '[]';\nlet arr = [];\ntry { arr = JSON.parse(raw); } catch (e) { throw new Error('queue-ready returned invalid JSON: ' + raw); }\nreturn arr.map(item => ({ json: item }));"
+      },
+      "id": "parse_json",
+      "name": "Parse Queue JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "split_items",
+      "name": "Split In Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        930,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.pinterest.com/v5/pins",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.PINTEREST_ACCESS_TOKEN}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"title\": $json.title,\n  \"description\": $json.description,\n  \"board_id\": $json.board_id || $env.PINTEREST_BOARD_ID,\n  \"link\": $json.link || undefined,\n  \"media_source\": {\n    \"source_type\": \"image_url\",\n    \"url\": $json.image_url\n  }\n}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "post_pinterest",
+      "name": "Post to Pinterest",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1160,
+        300
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "is_ok",
+              "leftValue": "={{$json.statusCode}}",
+              "rightValue": 200,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            },
+            {
+              "id": "is_ok2",
+              "leftValue": "={{$json.statusCode}}",
+              "rightValue": 300,
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if_success",
+      "name": "If Success",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1390,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "command": "=cd /home/nick/.openclaw/workspace/kinopois && source .venv/bin/activate && kinopois queue-posted --job-id {{$item(0).$node[\"Parse Queue JSON\"].json.id}} --pin-id {{$json.body.id || $json.body.data?.id || 'unknown'}}"
+      },
+      "id": "mark_posted",
+      "name": "Mark Posted",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        1630,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "command": "=cd /home/nick/.openclaw/workspace/kinopois && source .venv/bin/activate && kinopois queue-failed --job-id {{$item(0).$node[\"Parse Queue JSON\"].json.id}} --error \"Pinterest failed: {{$json.statusCode}} {{$json.body?.message || $json.error || 'unknown'}}\""
+      },
+      "id": "mark_failed",
+      "name": "Mark Failed",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        1630,
+        380
+      ]
+    }
+  ],
+  "connections": {
+    "Cron Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Ready Jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Ready Jobs": {
+      "main": [
+        [
+          {
+            "node": "Parse Queue JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Queue JSON": {
+      "main": [
+        [
+          {
+            "node": "Split In Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split In Batches": {
+      "main": [
+        [
+          {
+            "node": "Post to Pinterest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to Pinterest": {
+      "main": [
+        [
+          {
+            "node": "If Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Success": {
+      "main": [
+        [
+          {
+            "node": "Mark Posted",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1"
+}

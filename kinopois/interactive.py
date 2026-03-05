@@ -28,6 +28,8 @@ from kinopois.db import (
     mark_posted,
     mark_failed,
     get_conn,
+    sync_all_from_csv,
+    db_counts,
 )
 
 console = Console()
@@ -271,7 +273,9 @@ async def queue_menu():
             "Queue action:",
             choices=[
                 questionary.Choice("🗄️ Init DB", "init"),
+                questionary.Choice("🔄 Sync ALL CSV -> DB", "sync_all"),
                 questionary.Choice("🔄 Sync pins.csv -> queue", "sync"),
+                questionary.Choice("📊 DB stats", "stats"),
                 questionary.Choice("📋 Show ready jobs", "ready"),
                 questionary.Choice("✅ Mark job posted", "posted"),
                 questionary.Choice("❌ Mark job failed", "failed"),
@@ -286,6 +290,10 @@ async def queue_menu():
             path = init_db()
             console.print(f"[green]✓ DB initialized: {path}[/green]")
 
+        elif action == "sync_all":
+            out = sync_all_from_csv(config.cache_dir)
+            console.print(f"[green]✓ Synced ALL CSV -> DB: {out}[/green]")
+
         elif action == "sync":
             pins_csv = config.cache_dir / "pins.csv"
             if not pins_csv.exists():
@@ -293,6 +301,9 @@ async def queue_menu():
             else:
                 inserted = sync_pins_csv(pins_csv)
                 console.print(f"[green]✓ Synced queue. Inserted: {inserted}[/green]")
+
+        elif action == "stats":
+            console.print(f"[cyan]DB counts:[/cyan] {db_counts()}")
 
         elif action == "ready":
             limit_str = await questionary.text("Limit:", default="20").ask_async()

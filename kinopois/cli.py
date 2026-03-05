@@ -14,7 +14,15 @@ from kinopois.export import (
     export_simple_collages_csv,
     export_summary,
 )
-from kinopois.db import init_db, sync_pins_csv, get_ready_jobs, mark_posted, mark_failed
+from kinopois.db import (
+    init_db,
+    sync_pins_csv,
+    get_ready_jobs,
+    mark_posted,
+    mark_failed,
+    sync_all_from_csv,
+    db_counts,
+)
 from kinopois.marker import mark_posters, PosterMarker
 from kinopois.processor import load_clean_movies, load_movies
 from kinopois.scraper import KinopoiskScraper
@@ -307,15 +315,11 @@ def run_prod(ctx, limit, skip_download, watermark_text, max_per_genre):
     console.print("\n[bold]Step 4: Export Pinterest CSV[/bold]")
     ctx.invoke(export, format="pinterest")
 
-    console.print("\n[bold]Step 5: Queue sync (SQLite)[/bold]")
-    init_db()
-    pins_csv = config.cache_dir / "pins.csv"
-    if not pins_csv.exists():
-        console.print(f"[red]Error: {pins_csv} not found after export[/red]")
-        raise click.Abort()
-    inserted = sync_pins_csv(pins_csv)
-    ready = len(get_ready_jobs(limit=1000000))
-    console.print(f"[green]✓ Queue synced. Inserted: {inserted} | Ready total: {ready}[/green]")
+    console.print("\n[bold]Step 5: DB sync (all artifacts)[/bold]")
+    synced = sync_all_from_csv(config.cache_dir)
+    counts = db_counts()
+    console.print(f"[green]✓ DB synced: {synced}[/green]")
+    console.print(f"[cyan]DB counts:[/cyan] {counts}")
 
     console.print("\n[green]✓ run-prod complete[/green]")
 
@@ -403,6 +407,22 @@ def db_init_cmd():
     """Initialize SQLite database for publish queue."""
     path = init_db()
     console.print(f"[green]✓ DB initialized: {path}[/green]")
+
+
+@main.command("db-sync-all")
+def db_sync_all_cmd():
+    """Sync all CSV artifacts into SQLite (movies_raw, movies_clean, collages, publish_jobs)."""
+    out = sync_all_from_csv(config.cache_dir)
+    counts = db_counts()
+    console.print(f"[green]✓ Synced from CSV -> DB: {out}[/green]")
+    console.print(f"[cyan]DB counts:[/cyan] {counts}")
+
+
+@main.command("db-stats")
+def db_stats_cmd():
+    """Show current DB counts for pipeline and publish queue."""
+    counts = db_counts()
+    console.print(f"[cyan]DB counts:[/cyan] {counts}")
 
 
 @main.command("queue-sync")

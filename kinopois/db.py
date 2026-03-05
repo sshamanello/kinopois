@@ -32,6 +32,45 @@ def init_db(db_path: Optional[Path] = None) -> Path:
             """
             PRAGMA journal_mode=WAL;
 
+            CREATE TABLE IF NOT EXISTS movies_raw (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                source_id TEXT UNIQUE,
+                title TEXT,
+                genres TEXT,
+                rating_kp REAL,
+                poster_file TEXT,
+                payload_json TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS movies_clean (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                source_id TEXT UNIQUE,
+                title TEXT,
+                genres TEXT,
+                primary_genre TEXT,
+                rating_kp REAL,
+                poster_file TEXT,
+                payload_json TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS collages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                dedupe_key TEXT NOT NULL UNIQUE,
+                genre TEXT,
+                collage_file TEXT,
+                film1 TEXT,
+                film2 TEXT,
+                film3 TEXT,
+                film4 TEXT,
+                payload_json TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
             CREATE TABLE IF NOT EXISTS publish_jobs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 dedupe_key TEXT NOT NULL UNIQUE,
@@ -52,6 +91,9 @@ def init_db(db_path: Optional[Path] = None) -> Path:
                 posted_at TEXT
             );
 
+            CREATE INDEX IF NOT EXISTS idx_movies_raw_title ON movies_raw(title);
+            CREATE INDEX IF NOT EXISTS idx_movies_clean_genre ON movies_clean(primary_genre);
+            CREATE INDEX IF NOT EXISTS idx_collages_genre ON collages(genre);
             CREATE INDEX IF NOT EXISTS idx_publish_jobs_status_created
             ON publish_jobs(status, created_at);
             """
@@ -68,6 +110,107 @@ def _dedupe_key(row: Dict[str, Any]) -> str:
         ]
     )
     return hashlib.sha1(base.encode("utf-8")).hexdigest()
+
+
+def _movie_source_id(row: Dict[str, Any]) -> str:
+    base = "|".join([
+        str(row.get("id", "")).strip(),
+        str(row.get("title", "")).strip(),
+        str(row.get("poster_file", "")).strip(),
+    ])
+    return hashlib.sha1(base.encode("utf-8")).hexdigest()
+
+
+def sync_movies_raw_csv(csv_path: Path, db_path: Optional[Path] = None) -> int:
+    init_db(db_path)
+    rows = read_csv_dict(csv_path, config.csv_delimiter, config.csv_encoding)
+    now = datetime.utcnow().isoformat(timespec="seconds")
+    inserted = 0
+    with get_conn(db_path) as conn:
+        for row in rows:
+            sid = _movie_source_id(row)
+            cur = conn.execute(
+                """
+                INSERT OR REPLACE INTO movies_raw
+                (source_id, title, genres, rating_kp, poster_file, payload_json, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM movies_raw WHERE source_id=?), ?), ?)
+                """,
+                (
+                    sid,
+                    row.get("title", "").strip(),
+                    row.get("genres", "").strip(),
+                    float(row.get("rating_kp") or 0),
+                    row.get("poster_file", "").strip(),
+                    json.dumps(row, ensure_ascii=False),
+                    sid,
+                    now,
+                    now,
+                ),
+            )
+            inserted += 1 if cur.rowcount else 0
+    return inserted
+
+
+def sync_movies_clean_csv(csv_path: Path, db_path: Optional[Path] = None) -> int:
+    init_db(db_path)
+    rows = read_csv_dict(csv_path, config.csv_delimiter, config.csv_encoding)
+    now = datetime.utcnow().isoformat(timespec="seconds")
+    inserted = 0
+    with get_conn(db_path) as conn:
+        for row in rows:
+            sid = _movie_source_id(row)
+            cur = conn.execute(
+                """
+                INSERT OR REPLACE INTO movies_clean
+                (source_id, title, genres, primary_genre, rating_kp, poster_file, payload_json, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM movies_clean WHERE source_id=?), ?), ?)
+                """,
+                (
+                    sid,
+                    row.get("title", "").strip(),
+                    row.get("genres", "").strip(),
+                    row.get("primary_genre", "").strip(),
+                    float(row.get("rating_kp") or 0),
+                    row.get("poster_file", "").strip(),
+                    json.dumps(row, ensure_ascii=False),
+                    sid,
+                    now,
+                    now,
+                ),
+            )
+            inserted += 1 if cur.rowcount else 0
+    return inserted
+
+
+def sync_collages_csv(csv_path: Path, db_path: Optional[Path] = None) -> int:
+    init_db(db_path)
+    rows = read_csv_dict(csv_path, config.csv_delimiter, config.csv_encoding)
+    now = datetime.utcnow().isoformat(timespec="seconds")
+    inserted = 0
+    with get_conn(db_path) as conn:
+        for row in rows:
+            dkey = hashlib.sha1((str(row.get('genre','')) + '|' + str(row.get('collage_file','')) + '|' + str(row.get('film1','')) + '|' + str(row.get('film2','')) + '|' + str(row.get('film3','')) + '|' + str(row.get('film4',''))).encode('utf-8')).hexdigest()
+            cur = conn.execute(
+                """
+                INSERT OR IGNORE INTO collages
+                (dedupe_key, genre, collage_file, film1, film2, film3, film4, payload_json, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    dkey,
+                    row.get("genre", "").strip(),
+                    row.get("collage_file", "").strip(),
+                    row.get("film1", "").strip(),
+                    row.get("film2", "").strip(),
+                    row.get("film3", "").strip(),
+                    row.get("film4", "").strip(),
+                    json.dumps(row, ensure_ascii=False),
+                    now,
+                    now,
+                ),
+            )
+            inserted += cur.rowcount
+    return inserted
 
 
 def sync_pins_csv(
@@ -150,3 +293,35 @@ def mark_failed(job_id: int, error: str, db_path: Optional[Path] = None) -> None
             """,
             (error[:2000], now, job_id),
         )
+
+
+def sync_all_from_csv(cache_dir: Optional[Path] = None, db_path: Optional[Path] = None) -> Dict[str, int]:
+    cdir = cache_dir or config.cache_dir
+    init_db(db_path)
+    out = {"movies_raw": 0, "movies_clean": 0, "collages": 0, "publish_jobs": 0}
+    raw_csv = cdir / "movies.csv"
+    clean_csv = cdir / "movies_clean.csv"
+    collages_csv = cdir / "collages.csv"
+    pins_csv = cdir / "pins.csv"
+    if raw_csv.exists():
+        out["movies_raw"] = sync_movies_raw_csv(raw_csv, db_path)
+    if clean_csv.exists():
+        out["movies_clean"] = sync_movies_clean_csv(clean_csv, db_path)
+    if collages_csv.exists():
+        out["collages"] = sync_collages_csv(collages_csv, db_path)
+    if pins_csv.exists():
+        out["publish_jobs"] = sync_pins_csv(pins_csv, db_path)
+    return out
+
+
+def db_counts(db_path: Optional[Path] = None) -> Dict[str, int]:
+    init_db(db_path)
+    with get_conn(db_path) as conn:
+        return {
+            "movies_raw": conn.execute("SELECT COUNT(*) FROM movies_raw").fetchone()[0],
+            "movies_clean": conn.execute("SELECT COUNT(*) FROM movies_clean").fetchone()[0],
+            "collages": conn.execute("SELECT COUNT(*) FROM collages").fetchone()[0],
+            "ready": conn.execute("SELECT COUNT(*) FROM publish_jobs WHERE status='ready'").fetchone()[0],
+            "posted": conn.execute("SELECT COUNT(*) FROM publish_jobs WHERE status='posted'").fetchone()[0],
+            "failed": conn.execute("SELECT COUNT(*) FROM publish_jobs WHERE status='failed'").fetchone()[0],
+        }

@@ -225,11 +225,14 @@ ruff check kinopois/
 # 1) Сгенерировать pins.csv как раньше
 kinopois export --format pinterest
 
-# 2) Инициализировать БД и синхронизировать очередь
+# 2) Инициализировать БД и синхронизировать ВСЕ артефакты (movies/clean/collages/pins)
 kinopois db-init
-kinopois queue-sync
+kinopois db-sync-all
 
-# 3) Получить ready jobs (JSON для n8n)
+# 3) Проверить состояние БД
+kinopois db-stats
+
+# 4) Получить ready jobs (JSON для n8n)
 kinopois queue-ready --limit 20
 
 # 4) После успешной публикации

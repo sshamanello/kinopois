@@ -101,7 +101,7 @@ async def download_menu():
 
     if not config.kinopoisk_api_key:
         console.print("[red]Error: KINOPOISK_API_KEY is not set![/red]")
-        if await questionary.Confirm("Enter API key now?", default=True).ask_async():
+        if await questionary.confirm("Enter API key now?", default=True).ask_async():
             config.kinopoisk_api_key = await questionary.password("API Key:").ask_async()
         else:
             return
@@ -154,7 +154,7 @@ async def collage_menu():
         return
 
     # Ask for watermark
-    add_watermark = await questionary.Confirm("Add watermark?", default=True).ask_async()
+    add_watermark = await questionary.confirm("Add watermark?", default=True).ask_async()
     watermark = ""
     if add_watermark:
         watermark = await questionary.text(
@@ -163,7 +163,7 @@ async def collage_menu():
         ).ask_async()
 
     # Ask for max per genre
-    limit_genre = await questionary.Confirm("Limit collages per genre?", default=False).ask_async()
+    limit_genre = await questionary.confirm("Limit collages per genre?", default=False).ask_async()
     max_per_genre = None
     if limit_genre:
         max_str = await questionary.text("Maximum per genre:", default="5").ask_async()
@@ -361,7 +361,7 @@ async def clean_menu():
     if not choices:
         return
 
-    confirm = await questionary.Confirm(
+    confirm = await questionary.confirm(
         f"This will delete: {', '.join(choices)}. Continue?",
         default=False,
     ).ask_async()

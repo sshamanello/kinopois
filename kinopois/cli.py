@@ -13,6 +13,7 @@ from kinopois.export import (
     export_pinterest_csv,
     export_simple_collages_csv,
     export_summary,
+    export_movie_pins_csv,
 )
 from kinopois.db import (
     init_db,
@@ -91,7 +92,7 @@ def download(ctx, limit, output):
     scraper = KinopoiskScraper(config.kinopoisk_api_key)
     output_path = scraper.download_and_save(output_csv=output, limit=limit)
 
-    console.print(f"[green]✓ Download complete: {output_path}[/green]")
+    console.print(f"[green]Download complete: {output_path}[/green]")
 
 
 @main.command()
@@ -120,7 +121,7 @@ def process(ctx, input, output):
     processor = load_movies(input_path)
     processor.clean(output_path)
 
-    console.print(f"[green]✓ Processing complete: {output_path}[/green]")
+    console.print(f"[green]Processing complete: {output_path}[/green]")
 
 
 @main.command()
@@ -162,7 +163,7 @@ def collage(ctx, input, output_dir, watermark, max_per_genre):
         max_per_genre=max_per_genre,
     )
 
-    console.print(f"[green]✓ Collages created: {output_csv}[/green]")
+    console.print(f"[green]Collages created: {output_csv}[/green]")
 
 
 @main.command()
@@ -197,7 +198,7 @@ def mark(ctx, input_dir, output_dir, text, position):
         output_dir=output_dir,
     )
 
-    console.print(f"[green]✓ Marked {marked} posters[/green]")
+    console.print(f"[green]Marked {marked} posters[/green]")
 
 
 @main.command()
@@ -232,7 +233,7 @@ def export(ctx, input, format, output):
         input_csv = input or config.cache_dir / "collages.csv"
         export_simple_collages_csv(input_csv, output)
 
-    console.print(f"[green]✓ Export complete[/green]")
+    console.print(f"[green]Export complete[/green]")
 
 
 @main.command()
@@ -282,7 +283,7 @@ def run(ctx, all, limit, skip_download):
     console.print("\n[bold]Step 4: Export[/bold]")
     ctx.invoke(export, format="pinterest")
 
-    console.print("\n[green]✓ Pipeline complete![/green]")
+    console.print("\n[green]Pipeline complete![/green]")
 
 
 @main.command("run-prod")
@@ -318,10 +319,10 @@ def run_prod(ctx, limit, skip_download, watermark_text, max_per_genre):
     console.print("\n[bold]Step 5: DB sync (all artifacts)[/bold]")
     synced = sync_all_from_csv(config.cache_dir)
     counts = db_counts()
-    console.print(f"[green]✓ DB synced: {synced}[/green]")
+    console.print(f"[green]DB synced: {synced}[/green]")
     console.print(f"[cyan]DB counts:[/cyan] {counts}")
 
-    console.print("\n[green]✓ run-prod complete[/green]")
+    console.print("\n[green]run-prod complete[/green]")
 
 
 @main.command()
@@ -362,7 +363,7 @@ def clean(ctx, cache, collages, all):
             shutil.rmtree(target)
             console.print(f"[cyan]Removed: {target}[/cyan]")
 
-    console.print("[green]✓ Clean complete[/green]")
+    console.print("[green]Clean complete[/green]")
 
 
 @main.command()
@@ -406,7 +407,7 @@ def info(ctx):
 def db_init_cmd():
     """Initialize SQLite database for publish queue."""
     path = init_db()
-    console.print(f"[green]✓ DB initialized: {path}[/green]")
+    console.print(f"[green]DB initialized: {path}[/green]")
 
 
 @main.command("db-sync-all")
@@ -414,7 +415,7 @@ def db_sync_all_cmd():
     """Sync all CSV artifacts into SQLite (movies_raw, movies_clean, collages, publish_jobs)."""
     out = sync_all_from_csv(config.cache_dir)
     counts = db_counts()
-    console.print(f"[green]✓ Synced from CSV -> DB: {out}[/green]")
+    console.print(f"[green]Synced from CSV -> DB: {out}[/green]")
     console.print(f"[cyan]DB counts:[/cyan] {counts}")
 
 
@@ -438,7 +439,7 @@ def queue_sync_cmd(pins_csv):
         console.print(f"[red]Error: pins csv not found: {csv_path}[/red]")
         raise click.Abort()
     inserted = sync_pins_csv(csv_path)
-    console.print(f"[green]✓ Queue synced, inserted: {inserted}[/green]")
+    console.print(f"[green]Queue synced, inserted: {inserted}[/green]")
 
 
 @main.command("queue-ready")
@@ -456,7 +457,7 @@ def queue_ready_cmd(limit):
 def queue_posted_cmd(job_id, pin_id):
     """Mark queue job as posted."""
     mark_posted(job_id, pin_id)
-    console.print(f"[green]✓ Job {job_id} marked posted[/green]")
+    console.print(f"[green]Job {job_id} marked posted[/green]")
 
 
 @main.command("queue-failed")
@@ -465,7 +466,46 @@ def queue_posted_cmd(job_id, pin_id):
 def queue_failed_cmd(job_id, error):
     """Mark queue job as failed and increment retries."""
     mark_failed(job_id, error)
-    console.print(f"[yellow]⚠ Job {job_id} marked failed[/yellow]")
+    console.print(f"[yellow]WARNING: Job {job_id} marked failed[/yellow]")
+
+
+@main.command("export-movie-pins")
+@click.option(
+    "--input",
+    "input_csv",
+    type=click.Path(exists=True, path_type=Path),
+    help="Path to movies_clean.csv (default: data/cache/movies_clean.csv)",
+)
+@click.option(
+    "--output",
+    "output_csv",
+    type=click.Path(path_type=Path),
+    help="Output pins CSV path (default: data/cache/pins.csv)",
+)
+@click.option(
+    "--limit",
+    default=0,
+    type=int,
+    help="Max valid pins to export (0 = all). Counts exported rows, not rows read.",
+)
+def export_movie_pins_cmd(input_csv, output_csv, limit):
+    """Export individual movie posters as Pinterest pins CSV.
+
+    Each movie becomes one pin row. Rows with missing kp_id/title/genre
+    or absent poster file are skipped. Outputs detailed skip stats.
+    """
+    input_path = input_csv or config.cache_dir / "movies_clean.csv"
+    if not input_path.exists():
+        console.print(f"[red]Error: Input file not found: {input_path}[/red]")
+        console.print("Run 'kinopois process' first to create movies_clean.csv")
+        raise click.Abort()
+
+    output_path = export_movie_pins_csv(
+        input_csv=input_path,
+        output_csv=output_csv,
+        limit=limit or None,
+    )
+    console.print(f"[green]Pins CSV: {output_path}[/green]")
 
 
 @main.command()

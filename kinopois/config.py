@@ -43,6 +43,7 @@ class Config:
     # Export
     bot_url: str = "https://t.me/TopTrailer82Bot"
     base_image_url: str = "https://sshamanello.ru/collages"
+    posters_base_url: str = field(default_factory=lambda: os.getenv("POSTERS_BASE_URL", "https://sshamanello.ru/posters"))
 
     # CSV settings
     csv_delimiter: str = ";"
@@ -53,6 +54,7 @@ class Config:
         self.posters_dir.mkdir(parents=True, exist_ok=True)
         self.collages_dir.mkdir(parents=True, exist_ok=True)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
+        self.posters_base_url = self.posters_base_url.rstrip("/")
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -70,6 +72,7 @@ class Config:
             watermark_position=os.getenv("WATERMARK_POSITION", "bottom"),
             bot_url=os.getenv("BOT_URL", "https://t.me/TopTrailer82Bot"),
             base_image_url=os.getenv("BASE_IMAGE_URL", "https://sshamanello.ru/collages"),
+            posters_base_url=os.getenv("POSTERS_BASE_URL", "https://sshamanello.ru/posters"),
         )
 
 

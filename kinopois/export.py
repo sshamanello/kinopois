@@ -1,6 +1,8 @@
 """Export functionality for collages and metadata."""
 
 import csv
+import math
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -12,6 +14,242 @@ from kinopois.utils import read_csv_dict, safe_filename, write_csv_dict
 
 console = Console()
 
+
+# ---------------------------------------------------------------------------
+# Helpers for individual movie pin export
+# ---------------------------------------------------------------------------
+
+_NAN = {"", "nan", "none", "null", "n/a"}
+_GENRE_SEP = re.compile(r"[,;/|]+")
+
+
+def _is_nan(value) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, float) and math.isnan(value):
+        return True
+    return str(value).strip().lower() in _NAN
+
+
+def _clean_kp_id(value) -> str:
+    """Return kp_id as clean integer string. Handles '1008652.0', '1008652.00'."""
+    s = str(value).strip()
+    if s.lower() in _NAN:
+        return ""
+    if re.match(r"^\d+(\.0+)?$", s):
+        return str(int(float(s)))
+    return s
+
+
+def _clean_str(value, default="") -> str:
+    if _is_nan(value):
+        return default
+    return str(value).strip()
+
+
+def _clean_rating(value, default="—") -> str:
+    try:
+        f = float(str(value).strip())
+        return f"{f:.1f}" if f > 0 else default
+    except Exception:
+        return default
+
+
+def _clean_year(value, default="") -> str:
+    if _is_nan(value):
+        return default
+    s = str(value).strip()
+    return s if s.isdigit() and len(s) == 4 else default
+
+
+def _normalize_genre(value) -> str:
+    """Lowercase, take first genre. Handles ',', ';', '/', '|' separators."""
+    s = str(value).strip().lower()
+    if s in _NAN:
+        return ""
+    parts = _GENRE_SEP.split(s)
+    return parts[0].strip() if parts else ""
+
+
+def _build_keywords(*parts) -> str:
+    """Deduplicated, NaN-free, max-500-char comma-joined keywords."""
+    seen: set = set()
+    result: list = []
+    for p in parts:
+        if p is None:
+            continue
+        p = str(p).strip()
+        if p and p.lower() not in _NAN and p not in seen:
+            seen.add(p)
+            result.append(p)
+    return ",".join(result)[:500]
+
+
+def _is_valid_pin_row(kp_id: str, title: str, primary_genre: str) -> bool:
+    return bool(kp_id and title and primary_genre)
+
+
+GENRE_BOARD_MAP = {
+    "драма": "Драмы",
+    "комедия": "Комедии",
+    "триллер": "Триллеры",
+    "мелодрама": "Мелодрамы",
+    "боевик": "Боевики",
+    "аниме": "Аниме",
+    "мультфильм": "Мультфильмы",
+    "документальный": "Документальное кино",
+    "ужасы": "Ужасы",
+    "фантастика": "Фантастика",
+    "фэнтези": "Фэнтези",
+    "криминал": "Криминал",
+    "мюзикл": "Мюзиклы",
+    "концерт": "Концерты",
+    "реальное тв": "Реалити-шоу",
+    "короткометражка": "Короткометражки",
+}
+
+MOVIE_DESC_TEMPLATES = [
+    "«{title}» — {genre} с рейтингом {rating} на Кинопоиске. Подборки по настроению: {bot_url}",
+    "{title} ({year}). Рейтинг КП: {rating}. Жанр: {genre}. Найди похожее: {bot_url}",
+    "Один из лучших {genre} — «{title}». Рейтинг {rating}. Кино-бот в Telegram: {bot_url}",
+    "Смотри сегодня: «{title}» ({year}), {genre}, рейтинг КП {rating}. {bot_url}",
+    "«{title}» — это {genre}, который стоит посмотреть. Рейтинг {rating}. Больше подборок: {bot_url}",
+    "{title} — отличный выбор на вечер. {genre}, рейтинг {rating}. Кино-бот: {bot_url}",
+    "Рейтинг {rating} на Кинопоиске — «{title}». {genre} {year} года. Подборки: {bot_url}",
+    "Ищешь хороший {genre}? «{title}» с рейтингом {rating} — то что нужно. {bot_url}",
+    "«{title}» ({year}) — {genre} с рейтингом {rating}. Рекомендации по жанрам: {bot_url}",
+    "{title}: {genre}, {year} год, рейтинг КП {rating}. Найди похожие фильмы: {bot_url}",
+    "Топовый {genre} — «{title}», рейтинг {rating}. Больше кино по настроению: {bot_url}",
+    "«{title}» {year} года. {genre}, рейтинг {rating}. Кино-бот подберёт ещё: {bot_url}",
+    "{genre} «{title}» с рейтингом {rating}. Смотри и делись с друзьями. {bot_url}",
+    "Рейтинг {rating} — «{title}» ({year}). Хороший {genre} на вечер. {bot_url}",
+    "«{title}» — {genre} {year} года, рейтинг Кинопоиска {rating}. {bot_url}",
+]
+
+_MOVIE_PIN_FIELDNAMES = [
+    "id", "image_url", "poster_url", "title", "original_title",
+    "year", "rating", "genres", "primary_genre", "kp_url", "source_type",
+    "description", "keywords", "category", "board", "board_id",
+    "status", "created_at", "posted_at", "notes",
+]
+
+
+def export_movie_pins_csv(
+    input_csv: Path,
+    output_csv: Optional[Path] = None,
+    limit: Optional[int] = None,
+    posters_dir: Optional[Path] = None,
+) -> Path:
+    """Export individual movie posters as Pinterest pins CSV.
+
+    Each movie in movies_clean.csv becomes one pin row.
+    Rows with missing kp_id/title/genre or absent poster file are skipped.
+
+    Args:
+        input_csv: Path to movies_clean.csv.
+        output_csv: Output path. Defaults to cache_dir/pins.csv.
+        limit: Max valid pins to export (counts exported rows, not rows read).
+        posters_dir: Override posters directory. Defaults to config.posters_dir.
+
+    Returns:
+        Path to written CSV.
+    """
+    if output_csv is None:
+        output_csv = config.cache_dir / "pins.csv"
+
+    now_str = datetime.now().isoformat(timespec="seconds")
+    rows = read_csv_dict(input_csv, config.csv_delimiter, config.csv_encoding)
+
+    pins: List[Dict[str, Any]] = []
+    seen_ids: set = set()
+    skip = {"invalid": 0, "missing_poster": 0, "duplicate": 0}
+    poster_dir = Path(posters_dir or config.posters_dir)
+
+    for i, row in enumerate(rows):
+        if limit and len(pins) >= limit:
+            break
+
+        kp_id = _clean_kp_id(row.get("kp_id", ""))
+        title = _clean_str(row.get("title"))
+        primary_genre = _normalize_genre(row.get("primary_genre") or row.get("genres"))
+
+        if not _is_valid_pin_row(kp_id, title, primary_genre):
+            skip["invalid"] += 1
+            continue
+
+        poster_path = poster_dir / f"{kp_id}.jpg"
+        if not poster_path.exists():
+            skip["missing_poster"] += 1
+            continue
+
+        if kp_id in seen_ids:
+            skip["duplicate"] += 1
+            continue
+        seen_ids.add(kp_id)
+
+        original_title = _clean_str(row.get("original_title"))
+        year = _clean_year(row.get("year"))
+        rating = _clean_rating(row.get("rating_kp"))
+        poster_url = _clean_str(row.get("poster_url"))
+        genres = _clean_str(row.get("genres"))
+        board = GENRE_BOARD_MAP.get(primary_genre, "Фильмы")
+        kp_url = f"https://www.kinopoisk.ru/film/{kp_id}/"
+        image_url = f"{config.posters_base_url}/{kp_id}.jpg"
+
+        tmpl = MOVIE_DESC_TEMPLATES[i % len(MOVIE_DESC_TEMPLATES)]
+        description = tmpl.format(
+            title=title,
+            genre=primary_genre,
+            rating=rating,
+            year=year or "—",
+            bot_url=config.bot_url,
+        )
+
+        keywords = _build_keywords(
+            "фильмы", "кино", "что посмотреть",
+            primary_genre, title,
+            year if year else None,
+        )
+
+        pins.append({
+            "id": kp_id,
+            "image_url": image_url,
+            "poster_url": poster_url,
+            "title": title,
+            "original_title": original_title,
+            "year": year,
+            "rating": rating,
+            "genres": genres,
+            "primary_genre": primary_genre,
+            "kp_url": kp_url,
+            "source_type": "poster",
+            "description": description,
+            "keywords": keywords,
+            "category": "Фильмы",
+            "board": board,
+            "board_id": "",
+            "status": "pending",
+            "created_at": now_str,
+            "posted_at": "",
+            "notes": "",
+        })
+
+    write_csv_dict(output_csv, pins, _MOVIE_PIN_FIELDNAMES, config.csv_delimiter, config.csv_encoding)
+
+    skipped_total = sum(skip.values())
+    console.print(
+        f"[green]Exported {len(pins)} pins[/green] "
+        f"([yellow]{skipped_total} skipped: "
+        f"{skip['invalid']} invalid, "
+        f"{skip['missing_poster']} missing poster, "
+        f"{skip['duplicate']} duplicates[/yellow])"
+    )
+    return output_csv
+
+
+# ---------------------------------------------------------------------------
+# Pinterest-style titles templates (collage pipeline — unchanged)
+# ---------------------------------------------------------------------------
 
 # Pinterest-style titles templates
 TITLE_TEMPLATES = [

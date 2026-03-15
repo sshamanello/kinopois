@@ -66,6 +66,10 @@ data/cache/
 *.log
 .DS_Store
 
-# Generated files (keep data/ structure but ignore content)
-# data/posters/
-# data/collages/
+# Generated data files — not tracked in git
+data/posters/
+data/collages/
+data/*.db
+data/*.csv
+data/progress.json
+package-lock.json

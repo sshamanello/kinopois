@@ -469,6 +469,61 @@ def queue_failed_cmd(job_id, error):
     console.print(f"[yellow]WARNING: Job {job_id} marked failed[/yellow]")
 
 
+@main.command("run-pins")
+@click.option("--limit", default=200, type=int, help="Number of movies to download (default: 200)")
+@click.option("--skip-download", is_flag=True, help="Skip download, use existing movies.csv")
+@click.option("--skip-process", is_flag=True, help="Skip process, use existing movies_clean.csv")
+@click.option("--sync-queue", is_flag=True, help="Also sync pins.csv into SQLite publish queue")
+@click.pass_context
+def run_pins_cmd(ctx, limit, skip_download, skip_process, sync_queue):
+    """Full poster-pin pipeline: download -> process -> export pins CSV.
+
+    Downloads up to --limit movies, cleans the data, and writes one Pinterest
+    pin row per movie to data/cache/pins.csv. Skips rows with missing data or
+    absent poster files and prints a skip breakdown at the end.
+
+    Examples:
+
+        kinopois run-pins --limit 200
+
+        kinopois run-pins --skip-download --limit 200
+
+        kinopois run-pins --limit 200 --sync-queue
+    """
+    if not config.kinopoisk_api_key and not skip_download:
+        console.print("[red]Error: KINOPOISK_API_KEY is required for download[/red]")
+        console.print("Set via --api-key option or KINOPOISK_API_KEY env var")
+        raise click.Abort()
+
+    console.print("[bold cyan]Starting run-pins pipeline...[/bold cyan]")
+
+    if not skip_download:
+        console.print(f"\n[bold]Step 1: Download (limit={limit})[/bold]")
+        ctx.invoke(download, limit=limit)
+    else:
+        console.print("\n[bold]Step 1: Download[/bold] (skipped)")
+
+    if not skip_process:
+        console.print("\n[bold]Step 2: Process[/bold]")
+        ctx.invoke(process)
+    else:
+        console.print("\n[bold]Step 2: Process[/bold] (skipped)")
+
+    console.print("\n[bold]Step 3: Export poster pins CSV[/bold]")
+    ctx.invoke(export_movie_pins_cmd)
+
+    if sync_queue:
+        console.print("\n[bold]Step 4: Sync queue[/bold]")
+        pins_path = config.cache_dir / "pins.csv"
+        inserted = sync_pins_csv(pins_path)
+        counts = db_counts()
+        console.print(f"[green]Queue synced, inserted: {inserted}[/green]")
+        console.print(f"[cyan]DB counts:[/cyan] {counts}")
+
+    console.print("\n[green]run-pins complete[/green]")
+    console.print(f"[cyan]Pins CSV:[/cyan] {config.cache_dir / 'pins.csv'}")
+
+
 @main.command("export-movie-pins")
 @click.option(
     "--input",

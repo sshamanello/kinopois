@@ -73,3 +73,6 @@ data/*.db
 data/*.csv
 data/progress.json
 package-lock.json
+
+# Google service account keys — never commit!
+credentials/

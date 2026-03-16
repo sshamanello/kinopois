@@ -28,6 +28,12 @@ from kinopois.marker import mark_posters, PosterMarker
 from kinopois.processor import load_clean_movies, load_movies
 from kinopois.scraper import KinopoiskScraper
 
+try:
+    from kinopois.sheets import sync_pins_to_sheets as _sync_sheets
+    _SHEETS_AVAILABLE = True
+except ImportError:
+    _SHEETS_AVAILABLE = False
+
 console = Console()
 
 
@@ -474,8 +480,9 @@ def queue_failed_cmd(job_id, error):
 @click.option("--skip-download", is_flag=True, help="Skip download, use existing movies.csv")
 @click.option("--skip-process", is_flag=True, help="Skip process, use existing movies_clean.csv")
 @click.option("--sync-queue", is_flag=True, help="Also sync pins.csv into SQLite publish queue")
+@click.option("--sync-sheets", is_flag=True, help="Also sync pins.csv to Google Sheets (requires GOOGLE_SHEETS_ID + GOOGLE_CREDS_FILE)")
 @click.pass_context
-def run_pins_cmd(ctx, limit, skip_download, skip_process, sync_queue):
+def run_pins_cmd(ctx, limit, skip_download, skip_process, sync_queue, sync_sheets):
     """Full poster-pin pipeline: download -> process -> export pins CSV.
 
     Downloads up to --limit movies, cleans the data, and writes one Pinterest
@@ -562,6 +569,55 @@ def export_movie_pins_cmd(input_csv, output_csv, limit):
     )
     console.print(f"[green]Pins CSV: {output_path}[/green]")
 
+
+
+
+@main.command("sync-sheets")
+@click.option(
+    "--csv",
+    "csv_path",
+    default=None,
+    type=click.Path(path_type=Path),
+    help="Path to pins.csv (default: data/cache/pins.csv)",
+)
+@click.option(
+    "--no-upsert",
+    is_flag=True,
+    help="Skip rows that already exist in the sheet (default: overwrite)",
+)
+def sync_sheets_cmd(csv_path, no_upsert):
+    """Sync pins CSV to Google Sheets.
+
+    Reads data/cache/pins.csv and upserts rows to the configured Google Sheet.
+    Requires GOOGLE_SHEETS_ID and GOOGLE_CREDS_FILE in .env.
+
+    Examples:
+
+        kinopois sync-sheets
+
+        kinopois sync-sheets --csv data/cache/pins.csv --no-upsert
+    """
+    if not _SHEETS_AVAILABLE:
+        console.print("[red]gspread is not installed. Run: pip install gspread google-auth[/red]")
+        raise click.Abort()
+    if not config.google_sheets_id:
+        console.print("[red]GOOGLE_SHEETS_ID is not set in .env[/red]")
+        console.print("See .env.example for setup instructions.")
+        raise click.Abort()
+    if not config.google_creds_file:
+        console.print("[red]GOOGLE_CREDS_FILE is not set in .env[/red]")
+        console.print("Point it to your Google service account JSON file.")
+        raise click.Abort()
+
+    try:
+        stats = _sync_sheets(csv_path, upsert=not no_upsert)
+        console.print(f"[cyan]Sheet:[/cyan] https://docs.google.com/spreadsheets/d/{config.google_sheets_id}")
+    except FileNotFoundError as e:
+        console.print(f"[red]{e}[/red]")
+        raise click.Abort()
+    except Exception as e:
+        console.print(f"[red]Sheets sync failed: {e}[/red]")
+        raise click.Abort()
 
 @main.command()
 @click.pass_context

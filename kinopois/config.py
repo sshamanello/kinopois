@@ -45,6 +45,11 @@ class Config:
     base_image_url: str = "https://sshamanello.ru/collages"
     posters_base_url: str = field(default_factory=lambda: os.getenv("POSTERS_BASE_URL", "https://sshamanello.ru/posters"))
 
+    # Google Sheets integration
+    google_creds_file: str = field(default_factory=lambda: os.getenv("GOOGLE_CREDS_FILE", ""))
+    google_sheets_id: str = field(default_factory=lambda: os.getenv("GOOGLE_SHEETS_ID", ""))
+    google_sheets_tab: str = field(default_factory=lambda: os.getenv("GOOGLE_SHEETS_TAB", "pins"))
+
     # CSV settings
     csv_delimiter: str = ";"
     csv_encoding: str = "utf-8-sig"
@@ -73,6 +78,9 @@ class Config:
             bot_url=os.getenv("BOT_URL", "https://t.me/TopTrailer82Bot"),
             base_image_url=os.getenv("BASE_IMAGE_URL", "https://sshamanello.ru/collages"),
             posters_base_url=os.getenv("POSTERS_BASE_URL", "https://sshamanello.ru/posters"),
+            google_creds_file=os.getenv("GOOGLE_CREDS_FILE", ""),
+            google_sheets_id=os.getenv("GOOGLE_SHEETS_ID", ""),
+            google_sheets_tab=os.getenv("GOOGLE_SHEETS_TAB", "pins"),
         )
 
 

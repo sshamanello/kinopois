@@ -1,0 +1,12 @@
+services:
+  kinopois:
+    build: .
+    env_file: .env
+    volumes:
+      # Persistent data — survives container restarts
+      - ./data:/app/data
+      # Google service account JSON (read-only inside container)
+      - ./credentials:/app/credentials:ro
+    # Default: full pipeline with Sheets sync.
+    # Override via: docker compose run kinopois <command>
+    command: run-pins --limit 200 --sync-sheets

@@ -50,7 +50,9 @@ def _clean_str(value, default="") -> str:
 def _clean_rating(value, default="—") -> str:
     try:
         f = float(str(value).strip())
-        return f"{f:.1f}" if f > 0 else default
+        # Valid KP rating: 1.0-10.0. Reject vote counts (e.g. 46241) or
+        # date serials that sometimes leak from the DB created_at field.
+        return f"{f:.1f}" if 0 < f <= 10 else default
     except Exception:
         return default
 

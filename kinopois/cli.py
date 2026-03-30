@@ -1,7 +1,17 @@
 """CLI interface for kinopois."""
 
 import shutil
+import sys
 from pathlib import Path
+
+# On Windows cp1251 terminals some movie titles contain characters outside
+# the code page, causing UnicodeEncodeError. Reconfigure stdout to replace
+# unencodable characters with '?' instead of crashing.
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(errors="replace")
+    except Exception:
+        pass
 
 import click
 from rich.console import Console

@@ -50,6 +50,9 @@ class Config:
     google_sheets_id: str = field(default_factory=lambda: os.getenv("GOOGLE_SHEETS_ID", ""))
     google_sheets_tab: str = field(default_factory=lambda: os.getenv("GOOGLE_SHEETS_TAB", "pins"))
 
+    # Pinterest
+    pinterest_board_id: str = field(default_factory=lambda: os.getenv("PINTEREST_BOARD_ID", ""))
+
     # CSV settings
     csv_delimiter: str = ";"
     csv_encoding: str = "utf-8-sig"
@@ -81,6 +84,7 @@ class Config:
             google_creds_file=os.getenv("GOOGLE_CREDS_FILE", ""),
             google_sheets_id=os.getenv("GOOGLE_SHEETS_ID", ""),
             google_sheets_tab=os.getenv("GOOGLE_SHEETS_TAB", "pins"),
+            pinterest_board_id=os.getenv("PINTEREST_BOARD_ID", ""),
         )
 
 

@@ -1,106 +1,90 @@
 {
-  "name": "Kinopois -> Pinterest (Google Sheets)",
+  "name": "Pinterest",
   "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-64, 240],
+      "id": "7a3d1b34-4701-4b99-8cb8-839a710ea422",
+      "name": "When clicking 'Execute workflow'"
+    },
     {
       "parameters": {
         "rule": {
           "interval": [
             {
               "field": "hours",
-              "hoursInterval": 2
+              "hoursInterval": 7,
+              "triggerAtMinute": 15
             }
           ]
         }
       },
-      "id": "schedule_trigger",
-      "name": "Schedule Trigger",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [200, 300]
+      "position": [-64, 48],
+      "id": "b220e26f-d1ec-4c9f-93cc-b634abaab662",
+      "name": "Schedule Trigger"
     },
     {
       "parameters": {
-        "operation": "read",
         "documentId": {
           "__rl": true,
-          "value": "={{ $env.GOOGLE_SHEETS_ID }}",
-          "mode": "id"
+          "value": "1-6vaPPdgUaQVnvszU3u45NOi2jir3E49rySgjiL-PVw",
+          "mode": "list",
+          "cachedResultName": "Pinterest Cinema",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1-6vaPPdgUaQVnvszU3u45NOi2jir3E49rySgjiL-PVw/edit?usp=drivesdk"
         },
         "sheetName": {
           "__rl": true,
-          "value": "={{ $env.GOOGLE_SHEETS_TAB || 'pins' }}",
+          "value": "pins",
           "mode": "name"
         },
-        "options": {}
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "status",
+              "lookupValue": "pending"
+            }
+          ]
+        },
+        "options": {
+          "returnFirstMatch": true
+        }
       },
-      "id": "read_sheets",
-      "name": "Read Sheets",
       "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.4,
-      "position": [450, 300],
+      "typeVersion": 4.7,
+      "position": [200, 144],
+      "id": "3219c278-7cc1-47e3-b4de-be5ba9445b1f",
+      "name": "Get row(s) in sheet",
       "credentials": {
         "googleSheetsOAuth2Api": {
-          "id": "REPLACE_WITH_CREDENTIAL_ID",
-          "name": "Google Sheets account"
+          "id": "F0pxjtQAV06pJuzo",
+          "name": "Pin-Interest account"
         }
       }
     },
     {
       "parameters": {
-        "jsCode": "// Filter rows with status='pending', limit 20\nconst pending = items.filter(item => item.json.status === 'pending');\nif (pending.length === 0) {\n  return [];\n}\nreturn pending.slice(0, 20);"
+        "pinBoardId": "833729018457321520",
+        "pinTitle": "={{ $json.title }}",
+        "pinDescription": "={{ $json.description }}",
+        "pinLink": "={{ $json.kp_url }}",
+        "imageUrl": "={{ $json.image_url }}"
       },
-      "id": "filter_pending",
-      "name": "Filter Pending",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [700, 300]
-    },
-    {
-      "parameters": {
-        "options": {
-          "batchSize": 1
+      "type": "n8n-nodes-pin-interest.pinInterest",
+      "typeVersion": 1,
+      "position": [460, 144],
+      "id": "021d1c74-9220-465b-8e15-e0072060432d",
+      "name": "Create a pin",
+      "continueOnFail": true,
+      "credentials": {
+        "pinInterestOAuth2Api": {
+          "id": "F0pxjtQAV06pJuzo",
+          "name": "Pin-Interest account"
         }
-      },
-      "id": "split_items",
-      "name": "Split In Batches",
-      "type": "n8n-nodes-base.splitInBatches",
-      "typeVersion": 3,
-      "position": [950, 300]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://api.pinterest.com/v5/pins",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "=Bearer {{$env.PINTEREST_ACCESS_TOKEN}}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"title\": \"{{$json.title}}\",\n  \"description\": \"{{$json.description}}\",\n  \"board_id\": \"{{$json.board_id || $env.PINTEREST_BOARD_ID}}\",\n  \"link\": \"{{$json.kp_url}}\",\n  \"media_source\": {\n    \"source_type\": \"image_url\",\n    \"url\": \"{{$json.image_url}}\"\n  }\n}",
-        "options": {
-          "response": {
-            "response": {
-              "fullResponse": true
-            }
-          }
-        }
-      },
-      "id": "post_pinterest",
-      "name": "Post to Pinterest",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [1200, 300],
-      "continueOnFail": true
+      }
     },
     {
       "parameters": {
@@ -113,88 +97,92 @@
           },
           "conditions": [
             {
-              "id": "is_ok",
-              "leftValue": "={{$json.statusCode}}",
-              "rightValue": 200,
+              "id": "no_error",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": "",
               "operator": {
-                "type": "number",
-                "operation": "gte"
-              }
-            },
-            {
-              "id": "is_ok2",
-              "leftValue": "={{$json.statusCode}}",
-              "rightValue": 300,
-              "operator": {
-                "type": "number",
-                "operation": "lt"
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
               }
             }
           ],
           "combinator": "and"
         }
       },
-      "id": "if_success",
-      "name": "If Success",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [1450, 300]
-    },
-    {
-      "parameters": {
-        "jsCode": "// Prepare 'posted' update payload\nconst original = $('Split In Batches').item.json;\nconst response = $input.item.json;\nconst pinId = response.body?.id || response.body?.data?.id || 'posted';\nreturn [{\n  json: {\n    id: original.id,\n    status: 'posted',\n    posted_at: new Date().toISOString(),\n    notes: pinId\n  }\n}];"
-      },
-      "id": "prepare_posted",
-      "name": "Prepare Posted",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [1700, 200]
-    },
-    {
-      "parameters": {
-        "jsCode": "// Prepare 'failed' update payload\nconst original = $('Split In Batches').item.json;\nconst response = $input.item.json;\nconst errMsg = `${response.statusCode || 'err'}: ${response.body?.message || response.error || 'unknown'}`;\nreturn [{\n  json: {\n    id: original.id,\n    status: 'failed',\n    notes: errMsg\n  }\n}];"
-      },
-      "id": "prepare_failed",
-      "name": "Prepare Failed",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [1700, 400]
+      "position": [700, 144],
+      "id": "if_success",
+      "name": "If Success"
     },
     {
       "parameters": {
         "operation": "update",
         "documentId": {
           "__rl": true,
-          "value": "={{ $env.GOOGLE_SHEETS_ID }}",
-          "mode": "id"
+          "value": "1-6vaPPdgUaQVnvszU3u45NOi2jir3E49rySgjiL-PVw",
+          "mode": "list",
+          "cachedResultName": "Pinterest Cinema",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1-6vaPPdgUaQVnvszU3u45NOi2jir3E49rySgjiL-PVw/edit?usp=drivesdk"
         },
         "sheetName": {
           "__rl": true,
-          "value": "={{ $env.GOOGLE_SHEETS_TAB || 'pins' }}",
+          "value": "pins",
           "mode": "name"
         },
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "id": "={{ $json.id }}",
-            "status": "={{ $json.status }}",
-            "posted_at": "={{ $json.posted_at }}",
-            "notes": "={{ $json.notes }}"
+            "id": "={{ $('Get row(s) in sheet').item.json.id }}",
+            "status": "posted",
+            "posted_at": "={{ $now }}"
           },
           "matchingColumns": ["id"],
-          "schema": []
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "posted_at",
+              "displayName": "posted_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
         },
         "options": {}
       },
-      "id": "update_posted",
-      "name": "Update Posted",
       "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.4,
-      "position": [1950, 200],
+      "typeVersion": 4.7,
+      "position": [940, 60],
+      "id": "cda291f5-d233-4074-9387-31b547578514",
+      "name": "Update row in sheet",
       "credentials": {
         "googleSheetsOAuth2Api": {
-          "id": "REPLACE_WITH_CREDENTIAL_ID",
-          "name": "Google Sheets account"
+          "id": "F0pxjtQAV06pJuzo",
+          "name": "Pin-Interest account"
         }
       }
     },
@@ -203,71 +191,113 @@
         "operation": "update",
         "documentId": {
           "__rl": true,
-          "value": "={{ $env.GOOGLE_SHEETS_ID }}",
-          "mode": "id"
+          "value": "1-6vaPPdgUaQVnvszU3u45NOi2jir3E49rySgjiL-PVw",
+          "mode": "list",
+          "cachedResultName": "Pinterest Cinema",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1-6vaPPdgUaQVnvszU3u45NOi2jir3E49rySgjiL-PVw/edit?usp=drivesdk"
         },
         "sheetName": {
           "__rl": true,
-          "value": "={{ $env.GOOGLE_SHEETS_TAB || 'pins' }}",
+          "value": "pins",
           "mode": "name"
         },
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "id": "={{ $json.id }}",
-            "status": "={{ $json.status }}",
-            "notes": "={{ $json.notes }}"
+            "id": "={{ $('Get row(s) in sheet').item.json.id }}",
+            "status": "failed",
+            "notes": "={{ $json.error?.message || $json.error || 'unknown error' }}"
           },
           "matchingColumns": ["id"],
-          "schema": []
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "notes",
+              "displayName": "notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
         },
         "options": {}
       },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [940, 260],
       "id": "update_failed",
-      "name": "Update Failed",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.4,
-      "position": [1950, 400],
+      "name": "Update row - failed",
       "credentials": {
         "googleSheetsOAuth2Api": {
-          "id": "REPLACE_WITH_CREDENTIAL_ID",
-          "name": "Google Sheets account"
+          "id": "F0pxjtQAV06pJuzo",
+          "name": "Pin-Interest account"
         }
       }
+    },
+    {
+      "parameters": {
+        "content": "## Что изменено vs предыдущая версия\n- Убран ненужный «List boards»\n- Читает вкладку **pins** (не Лист1)\n- Добавлена ветка ошибки → статус **failed** + текст ошибки в notes\n- pinLink теперь берётся из kp_url (ссылка на Кинопоиск)",
+        "height": 200,
+        "width": 320
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-64, 380],
+      "id": "note1",
+      "name": "Sticky Note"
     }
   ],
+  "pinData": {},
   "connections": {
+    "When clicking 'Execute workflow'": {
+      "main": [[{ "node": "Get row(s) in sheet", "type": "main", "index": 0 }]]
+    },
     "Schedule Trigger": {
-      "main": [[{ "node": "Read Sheets", "type": "main", "index": 0 }]]
+      "main": [[{ "node": "Get row(s) in sheet", "type": "main", "index": 0 }]]
     },
-    "Read Sheets": {
-      "main": [[{ "node": "Filter Pending", "type": "main", "index": 0 }]]
+    "Get row(s) in sheet": {
+      "main": [[{ "node": "Create a pin", "type": "main", "index": 0 }]]
     },
-    "Filter Pending": {
-      "main": [[{ "node": "Split In Batches", "type": "main", "index": 0 }]]
-    },
-    "Split In Batches": {
-      "main": [[{ "node": "Post to Pinterest", "type": "main", "index": 0 }]]
-    },
-    "Post to Pinterest": {
+    "Create a pin": {
       "main": [[{ "node": "If Success", "type": "main", "index": 0 }]]
     },
     "If Success": {
       "main": [
-        [{ "node": "Prepare Posted", "type": "main", "index": 0 }],
-        [{ "node": "Prepare Failed", "type": "main", "index": 0 }]
+        [{ "node": "Update row in sheet", "type": "main", "index": 0 }],
+        [{ "node": "Update row - failed", "type": "main", "index": 0 }]
       ]
-    },
-    "Prepare Posted": {
-      "main": [[{ "node": "Update Posted", "type": "main", "index": 0 }]]
-    },
-    "Prepare Failed": {
-      "main": [[{ "node": "Update Failed", "type": "main", "index": 0 }]]
     }
   },
   "active": false,
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "2"
+  "versionId": "224396d9-1ba2-443b-8042-1576f8645528",
+  "meta": {
+    "instanceId": "2b615a4ee9dcb4fb69a3233f53ddc1715da07a2d4a50e08b96754c796cdf17ea"
+  },
+  "id": "3wAWYinprDv5sRul",
+  "tags": []
 }

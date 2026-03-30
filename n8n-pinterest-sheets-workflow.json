@@ -1,0 +1,273 @@
+{
+  "name": "Kinopois -> Pinterest (Google Sheets)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 2
+            }
+          ]
+        }
+      },
+      "id": "schedule_trigger",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $env.GOOGLE_SHEETS_ID }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "={{ $env.GOOGLE_SHEETS_TAB || 'pins' }}",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "read_sheets",
+      "name": "Read Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [450, 300],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Filter rows with status='pending', limit 20\nconst pending = items.filter(item => item.json.status === 'pending');\nif (pending.length === 0) {\n  return [];\n}\nreturn pending.slice(0, 20);"
+      },
+      "id": "filter_pending",
+      "name": "Filter Pending",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "options": {
+          "batchSize": 1
+        }
+      },
+      "id": "split_items",
+      "name": "Split In Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [950, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.pinterest.com/v5/pins",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.PINTEREST_ACCESS_TOKEN}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"title\": \"{{$json.title}}\",\n  \"description\": \"{{$json.description}}\",\n  \"board_id\": \"{{$json.board_id || $env.PINTEREST_BOARD_ID}}\",\n  \"link\": \"{{$json.kp_url}}\",\n  \"media_source\": {\n    \"source_type\": \"image_url\",\n    \"url\": \"{{$json.image_url}}\"\n  }\n}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "post_pinterest",
+      "name": "Post to Pinterest",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 300],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "is_ok",
+              "leftValue": "={{$json.statusCode}}",
+              "rightValue": 200,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            },
+            {
+              "id": "is_ok2",
+              "leftValue": "={{$json.statusCode}}",
+              "rightValue": 300,
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if_success",
+      "name": "If Success",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1450, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare 'posted' update payload\nconst original = $('Split In Batches').item.json;\nconst response = $input.item.json;\nconst pinId = response.body?.id || response.body?.data?.id || 'posted';\nreturn [{\n  json: {\n    id: original.id,\n    status: 'posted',\n    posted_at: new Date().toISOString(),\n    notes: pinId\n  }\n}];"
+      },
+      "id": "prepare_posted",
+      "name": "Prepare Posted",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1700, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare 'failed' update payload\nconst original = $('Split In Batches').item.json;\nconst response = $input.item.json;\nconst errMsg = `${response.statusCode || 'err'}: ${response.body?.message || response.error || 'unknown'}`;\nreturn [{\n  json: {\n    id: original.id,\n    status: 'failed',\n    notes: errMsg\n  }\n}];"
+      },
+      "id": "prepare_failed",
+      "name": "Prepare Failed",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1700, 400]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $env.GOOGLE_SHEETS_ID }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "={{ $env.GOOGLE_SHEETS_TAB || 'pins' }}",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $json.id }}",
+            "status": "={{ $json.status }}",
+            "posted_at": "={{ $json.posted_at }}",
+            "notes": "={{ $json.notes }}"
+          },
+          "matchingColumns": ["id"],
+          "schema": []
+        },
+        "options": {}
+      },
+      "id": "update_posted",
+      "name": "Update Posted",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [1950, 200],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $env.GOOGLE_SHEETS_ID }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "={{ $env.GOOGLE_SHEETS_TAB || 'pins' }}",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $json.id }}",
+            "status": "={{ $json.status }}",
+            "notes": "={{ $json.notes }}"
+          },
+          "matchingColumns": ["id"],
+          "schema": []
+        },
+        "options": {}
+      },
+      "id": "update_failed",
+      "name": "Update Failed",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [1950, 400],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [[{ "node": "Read Sheets", "type": "main", "index": 0 }]]
+    },
+    "Read Sheets": {
+      "main": [[{ "node": "Filter Pending", "type": "main", "index": 0 }]]
+    },
+    "Filter Pending": {
+      "main": [[{ "node": "Split In Batches", "type": "main", "index": 0 }]]
+    },
+    "Split In Batches": {
+      "main": [[{ "node": "Post to Pinterest", "type": "main", "index": 0 }]]
+    },
+    "Post to Pinterest": {
+      "main": [[{ "node": "If Success", "type": "main", "index": 0 }]]
+    },
+    "If Success": {
+      "main": [
+        [{ "node": "Prepare Posted", "type": "main", "index": 0 }],
+        [{ "node": "Prepare Failed", "type": "main", "index": 0 }]
+      ]
+    },
+    "Prepare Posted": {
+      "main": [[{ "node": "Update Posted", "type": "main", "index": 0 }]]
+    },
+    "Prepare Failed": {
+      "main": [[{ "node": "Update Failed", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "2"
+}

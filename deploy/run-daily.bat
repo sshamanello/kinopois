@@ -1,13 +1,17 @@
 @echo off
 REM Kinopois Daily Parser - Windows Task Scheduler Script
-REM Schedule: Every day at 09:00
-REM Run: schtasks /create /tn "Kinopois Daily" /tr "path\to\run_kinopois.bat" /sc daily /st 09:00
+REM
+REM One-time setup (run as Administrator in PowerShell):
+REM   $action = New-ScheduledTaskAction -Execute "E:\code\kinopois\deploy\run-daily.bat"
+REM   $trigger = New-ScheduledTaskTrigger -Daily -At "09:00AM"
+REM   Register-ScheduledTask -TaskName "kinopois-daily" -Action $action -Trigger $trigger -RunLevel Highest
 
-cd /d "%~dp0"
+REM Go to project root (parent of deploy/)
+cd /d "%~dp0.."
 
-echo [%date% %time%] Starting kinopois... >> data\kinopois-cron.log
+echo [%date% %time%] Starting kinopois... >> data\kinopois-cron.log 2>&1
 
-REM Run with Docker
-docker compose run --rm kinopois pins --limit 200 --sync-sheets >> data\kinopois-cron.log 2>&1
+call .venv\Scripts\activate.bat
+kinopois run-pins --limit 200 --sync-sheets >> data\kinopois-cron.log 2>&1
 
-echo [%date% %time%] Done >> data\kinopois-cron.log
+echo [%date% %time%] Done >> data\kinopois-cron.log 2>&1

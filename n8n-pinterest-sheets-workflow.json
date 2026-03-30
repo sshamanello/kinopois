@@ -67,7 +67,7 @@
     },
     {
       "parameters": {
-        "pinBoardId": "833729018457321520",
+        "pinBoardId": "1085930597590767480",
         "pinTitle": "={{ $json.title }}",
         "pinDescription": "={{ $json.description }}",
         "pinLink": "={{ $json.kp_url }}",

@@ -77,15 +77,15 @@ def _ensure_header(ws) -> None:
 def sync_pins_to_sheets(
     csv_path: Optional[Path] = None,
     *,
-    upsert: bool = True,
+    upsert: bool = False,
 ) -> Dict[str, int]:
     """Sync pins CSV to Google Sheets.
 
     Reads ``csv_path`` (defaults to ``config.cache_dir/pins.csv``),
     looks up existing rows by ``id`` column, and:
     - appends rows that don't exist yet (new pins)
-    - skips rows that already exist when ``upsert=False``
-    - overwrites existing rows when ``upsert=True`` (default)
+    - skips rows that already exist when ``upsert=False`` (default)
+    - overwrites existing rows when ``upsert=True``
 
     Returns:
         dict with keys: added, updated, skipped, total

@@ -752,20 +752,20 @@ def export_movie_pins_cmd(input_csv, output_csv, limit):
     help="CSV file to upload (default: data/cache/pins.csv)",
 )
 @click.option(
-    "--no-upsert",
+    "--force-update",
     is_flag=True,
-    help="Skip rows that already exist in the sheet",
+    help="Overwrite existing rows (by default existing rows are skipped)",
 )
-def sync_sheets_cmd(csv_path, no_upsert):
+def sync_sheets_cmd(csv_path, force_update):
     """Push pins.csv to Google Sheets.
 
-    Uploads pins data to Google Sheets for n8n/Pinterest automation.
-    Requires GOOGLE_SHEETS_ID and GOOGLE_CREDS_FILE in .env.
+    Only adds new rows — existing rows (matched by id) are never touched,
+    so posted/failed statuses set by n8n are preserved.
 
     Examples:
 
-        kinopois sync              Push pins.csv to Google Sheets
-        kinopois sync --no-upsert  Only add new rows (don't update existing)
+        kinopois sync               Add only new pins to Google Sheets
+        kinopois sync --force-update  Overwrite all rows (resets statuses!)
     """
     if not _SHEETS_AVAILABLE:
         print_error(
@@ -782,7 +782,7 @@ def sync_sheets_cmd(csv_path, no_upsert):
         raise click.Abort()
 
     try:
-        stats = _sync_sheets(csv_path, upsert=not no_upsert)
+        stats = _sync_sheets(csv_path, upsert=force_update)
         print_success(f"Synced {stats.get('total', 0)} rows to Google Sheets")
         console.print(
             f"[dim]Open: https://docs.google.com/spreadsheets/d/{config.google_sheets_id}[/dim]"

@@ -136,14 +136,21 @@ def sync_pins_to_sheets(
         else:
             to_append.append(values)
 
-    # Batch append new rows
+    # Batch append new rows (single API call)
     if to_append:
         ws.append_rows(to_append, value_input_option="USER_ENTERED")
 
-    # Update existing rows one-by-one (gspread batch_update is complex)
-    for row_num, values in to_update:
+    # Batch update existing rows using batch_update (single API call)
+    if to_update:
         col_end = chr(ord("A") + len(SHEET_HEADERS) - 1)
-        ws.update(f"A{row_num}:{col_end}{row_num}", [values])
+        data = [
+            {
+                "range": f"A{row_num}:{col_end}{row_num}",
+                "values": [values],
+            }
+            for row_num, values in to_update
+        ]
+        ws.batch_update(data, value_input_option="USER_ENTERED")
 
     stats = {
         "added": len(to_append),

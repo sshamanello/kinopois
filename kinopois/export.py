@@ -93,6 +93,32 @@ def _is_valid_pin_row(kp_id: str, title: str, primary_genre: str) -> bool:
     return bool(kp_id and title and primary_genre)
 
 
+def _clip_title(value: str, limit: int = 100) -> str:
+    value = value.strip()
+    if len(value) <= limit:
+        return value
+    return value[: limit - 1].rstrip() + "…"
+
+
+def _build_seo_title(title: str, genre: str, year: str, rating: str, i: int) -> str:
+    templates = [
+        "{title} ({year}) — {genre}, рейтинг {rating}",
+        "Что посмотреть: {title} ({year}) — {genre}",
+        "{genre}: {title} ({year})",
+        "{title} — {genre} с рейтингом {rating}",
+        "{title}: лучший {genre} на вечер",
+        "{title} ({year}) — кино в жанре {genre}",
+    ]
+    t = templates[i % len(templates)]
+    out = t.format(
+        title=title,
+        genre=genre,
+        year=year or "год неизвестен",
+        rating=rating if rating != "—" else "без оценки",
+    )
+    return _clip_title(out, 100)
+
+
 def _refresh_clean_poster(kp_id: str, poster_url: str, fallback_path: Path) -> Path:
     if not config.framed_refresh_source or not poster_url:
         return fallback_path
@@ -188,10 +214,10 @@ def export_movie_pins_csv(
             break
 
         kp_id = _clean_kp_id(row.get("kp_id", ""))
-        title = _clean_str(row.get("title"))
+        movie_title = _clean_str(row.get("title"))
         primary_genre = _normalize_genre(row.get("primary_genre") or row.get("genres"))
 
-        if not _is_valid_pin_row(kp_id, title, primary_genre):
+        if not _is_valid_pin_row(kp_id, movie_title, primary_genre):
             skip["invalid"] += 1
             continue
 
@@ -208,6 +234,7 @@ def export_movie_pins_csv(
         original_title = _clean_str(row.get("original_title"))
         year = _clean_year(row.get("year"))
         rating = _clean_rating(row.get("rating_kp"))
+        seo_title = _build_seo_title(movie_title, primary_genre, year, rating, i)
         poster_url = _clean_str(row.get("poster_url"))
         genres = _clean_str(row.get("genres"))
         board = GENRE_BOARD_MAP.get(primary_genre, "Фильмы")
@@ -222,7 +249,7 @@ def export_movie_pins_csv(
 
         tmpl = MOVIE_DESC_TEMPLATES[i % len(MOVIE_DESC_TEMPLATES)]
         description = tmpl.format(
-            title=title,
+            title=movie_title,
             genre=primary_genre,
             rating=rating,
             year=year or "—",
@@ -231,7 +258,7 @@ def export_movie_pins_csv(
 
         keywords = _build_keywords(
             "фильмы", "кино", "что посмотреть",
-            primary_genre, title,
+            primary_genre, movie_title,
             year if year else None,
         )
 
@@ -239,7 +266,7 @@ def export_movie_pins_csv(
             "id": kp_id,
             "image_url": image_url,
             "poster_url": poster_url,
-            "title": title,
+            "title": seo_title,
             "original_title": original_title,
             "year": year,
             "rating": rating,

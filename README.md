@@ -106,6 +106,9 @@ kinopois autopilot
 Autopilot is stateful and keeps `data/cache/autopilot_state.json`.
 It is designed for long-term backlog growth: daily harvest appends new movies
 to `movies.csv` instead of replacing old rows.
+By default autopilot publishes directly to Pinterest API using
+`PINTEREST_ACCESS_TOKEN` + `board_id` from row (or fallback `PINTEREST_BOARD_ID`).
+`AUTOPILOT_PUBLISH_COMMAND` is optional override for custom external posting.
 
 ### Collage pipeline
 

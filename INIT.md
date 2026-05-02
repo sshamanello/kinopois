@@ -94,3 +94,18 @@
   - `python3 -m kinopois --data-dir data/test_run process`
   - `python3 -m kinopois --data-dir data/test_run export-movie-pins --limit 3`
   - framed output: `data/test_run/posters_framed/{kp_id}.jpg`.
+
+## Изменения 2026-05-02 (Python-only post без n8n)
+
+- Добавлен прямой постинг в Pinterest API из Python:
+  - новый модуль: `kinopois/pinterest.py`
+  - endpoint: `POST https://api.pinterest.com/v5/pins`
+  - берёт `PINTEREST_ACCESS_TOKEN` из env.
+- Autopilot теперь публикует без n8n по умолчанию:
+  - если `AUTOPILOT_PUBLISH_COMMAND` пустой, используется прямой `publish_pin(job)`.
+  - если `AUTOPILOT_PUBLISH_COMMAND` задан, он остаётся override-режимом.
+- Для board выбора:
+  - сначала `job.board_id` из `pins.csv`/queue,
+  - fallback: `PINTEREST_BOARD_ID`.
+
+Итог: стабильный цикл `скачать -> обработать -> сохранить -> постить` полностью внутри kinopois.

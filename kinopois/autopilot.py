@@ -16,6 +16,7 @@ from rich.console import Console
 from kinopois.config import config
 from kinopois.db import get_ready_jobs, mark_failed, mark_posted, sync_pins_csv
 from kinopois.export import export_movie_pins_csv
+from kinopois.pinterest import publish_pin
 from kinopois.processor import load_movies
 from kinopois.scraper import KinopoiskScraper
 
@@ -132,30 +133,36 @@ class Autopilot:
 
         job = ready_jobs[0]
         command = config.autopilot_publish_command.strip()
-        if not command:
-            console.print("[yellow]AUTOPILOT_PUBLISH_COMMAND is empty, slot skipped[/yellow]")
-            state.setdefault("posted_slots", {})[slot_key] = "no_publish_command"
-            return
+        pin_id = ""
+        if command:
+            payload = json.dumps(job, ensure_ascii=False)
+            proc = subprocess.run(
+                command,
+                shell=True,
+                text=True,
+                capture_output=True,
+                input=payload,
+            )
 
-        payload = json.dumps(job, ensure_ascii=False)
-        proc = subprocess.run(
-            command,
-            shell=True,
-            text=True,
-            capture_output=True,
-            input=payload,
-        )
+            if proc.returncode != 0:
+                error = (proc.stderr or proc.stdout or "publish command failed").strip()
+                mark_failed(job["id"], error[:1500])
+                state.setdefault("posted_slots", {})[slot_key] = "failed"
+                self._notify(f"Publish failed for job={job['id']}: {error[:180]}")
+                return
 
-        if proc.returncode != 0:
-            error = (proc.stderr or proc.stdout or "publish command failed").strip()
-            mark_failed(job["id"], error[:1500])
-            state.setdefault("posted_slots", {})[slot_key] = "failed"
-            self._notify(f"Publish failed for job={job['id']}: {error[:180]}")
-            return
-
-        pin_id = self._extract_pin_id(proc.stdout)
-        if not pin_id:
-            pin_id = f"external-{int(time.time())}"
+            pin_id = self._extract_pin_id(proc.stdout)
+            if not pin_id:
+                pin_id = f"external-{int(time.time())}"
+        else:
+            try:
+                pin_id = publish_pin(job)
+            except Exception as exc:
+                error = str(exc).strip() or "direct publish failed"
+                mark_failed(job["id"], error[:1500])
+                state.setdefault("posted_slots", {})[slot_key] = "failed"
+                self._notify(f"Publish failed for job={job['id']}: {error[:180]}")
+                return
 
         mark_posted(job["id"], pin_id)
         state.setdefault("posted_slots", {})[slot_key] = "posted"

@@ -57,6 +57,7 @@ class Config:
     google_sheets_tab: str = field(default_factory=lambda: os.getenv("GOOGLE_SHEETS_TAB", "pins"))
 
     # Pinterest
+    pinterest_access_token: str = field(default_factory=lambda: os.getenv("PINTEREST_ACCESS_TOKEN", ""))
     pinterest_board_id: str = field(default_factory=lambda: os.getenv("PINTEREST_BOARD_ID", ""))
 
     # CSV settings
@@ -115,6 +116,7 @@ class Config:
             google_creds_file=os.getenv("GOOGLE_CREDS_FILE", ""),
             google_sheets_id=os.getenv("GOOGLE_SHEETS_ID", ""),
             google_sheets_tab=os.getenv("GOOGLE_SHEETS_TAB", "pins"),
+            pinterest_access_token=os.getenv("PINTEREST_ACCESS_TOKEN", ""),
             pinterest_board_id=os.getenv("PINTEREST_BOARD_ID", ""),
             autopilot_enabled=os.getenv("AUTOPILOT_ENABLED", "0") == "1",
             autopilot_download_limit_per_day=int(os.getenv("AUTOPILOT_DOWNLOAD_LIMIT_PER_DAY", "200")),

@@ -81,3 +81,16 @@
 - Добавлен флаг `FRAMED_FORCE_REGENERATE=1` по умолчанию.
 - Экспорт movie-pins теперь перерисовывает `data/posters_framed/{kp_id}.jpg` при каждом экспорте, если флаг включен.
 - Это устраняет проблему старого кэша framed-файлов, где мог оставаться исторический `@Бот`.
+
+## Изменения 2026-05-02 (CLI test run + source watermark fix)
+
+- Исправлен источник постера в scraper:
+  - вместо `poster_preview_url` теперь используется `poster_url` (full size),
+  - причина: preview-варианты чаще несут watermark/хуже по качеству.
+- Исправлен баг `--data-dir`:
+  - CLI теперь создаёт все целевые каталоги (`posters`, `posters_clean`, `posters_framed`, `collages`, `cache`) до запуска команд.
+- Прогнан изолированный end-to-end тест через CLI на 3 свежих постерах:
+  - `python3 -m kinopois --data-dir data/test_run download --limit 3`
+  - `python3 -m kinopois --data-dir data/test_run process`
+  - `python3 -m kinopois --data-dir data/test_run export-movie-pins --limit 3`
+  - framed output: `data/test_run/posters_framed/{kp_id}.jpg`.

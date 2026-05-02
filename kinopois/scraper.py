@@ -186,7 +186,10 @@ class KinopoiskScraper:
                         break
 
                     data = self.extract_movie_data(movie)
-                    poster_url = data.pop("poster_preview_url", "")
+                    # Use full poster URL first; preview URLs often contain
+                    # lower-quality or watermarked variants.
+                    data.pop("poster_preview_url", None)
+                    poster_url = str(data.get("poster_url") or "").strip()
                     kp_id = str(data.get("kp_id", "")).strip()
 
                     if not kp_id:

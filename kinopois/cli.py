@@ -105,8 +105,15 @@ def main(ctx, api_key, data_dir):
     if data_dir:
         config.data_dir = data_dir
         config.posters_dir = data_dir / "posters"
+        config.framed_source_posters_dir = data_dir / "posters_clean"
+        config.framed_posters_dir = data_dir / "posters_framed"
         config.collages_dir = data_dir / "collages"
         config.cache_dir = data_dir / "cache"
+        config.posters_dir.mkdir(parents=True, exist_ok=True)
+        config.framed_source_posters_dir.mkdir(parents=True, exist_ok=True)
+        config.framed_posters_dir.mkdir(parents=True, exist_ok=True)
+        config.collages_dir.mkdir(parents=True, exist_ok=True)
+        config.cache_dir.mkdir(parents=True, exist_ok=True)
 
     # If no subcommand, launch interactive mode
     if ctx.invoked_subcommand is None:

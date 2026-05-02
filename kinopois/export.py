@@ -216,7 +216,7 @@ def export_movie_pins_csv(
         if config.use_framed_posters:
             source_for_frame = _refresh_clean_poster(kp_id, poster_url, poster_path)
             framed_path = config.framed_posters_dir / f"{kp_id}.jpg"
-            if not framed_path.exists():
+            if config.framed_force_regenerate or not framed_path.exists():
                 render_framed_poster(source_for_frame, framed_path, seed_key=kp_id)
             image_url = f"{config.framed_posters_base_url}/{kp_id}.jpg"
 

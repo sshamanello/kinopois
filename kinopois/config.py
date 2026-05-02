@@ -49,6 +49,7 @@ class Config:
     framed_posters_base_url: str = field(default_factory=lambda: os.getenv("FRAMED_POSTERS_BASE_URL", "https://sshamanello.ru/posters_framed"))
     use_framed_posters: bool = field(default_factory=lambda: os.getenv("USE_FRAMED_POSTERS", "1") == "1")
     framed_refresh_source: bool = field(default_factory=lambda: os.getenv("FRAMED_REFRESH_SOURCE", "1") == "1")
+    framed_force_regenerate: bool = field(default_factory=lambda: os.getenv("FRAMED_FORCE_REGENERATE", "1") == "1")
 
     # Google Sheets integration
     google_creds_file: str = field(default_factory=lambda: os.getenv("GOOGLE_CREDS_FILE", ""))
@@ -110,6 +111,7 @@ class Config:
             framed_posters_base_url=os.getenv("FRAMED_POSTERS_BASE_URL", "https://sshamanello.ru/posters_framed"),
             use_framed_posters=os.getenv("USE_FRAMED_POSTERS", "1") == "1",
             framed_refresh_source=os.getenv("FRAMED_REFRESH_SOURCE", "1") == "1",
+            framed_force_regenerate=os.getenv("FRAMED_FORCE_REGENERATE", "1") == "1",
             google_creds_file=os.getenv("GOOGLE_CREDS_FILE", ""),
             google_sheets_id=os.getenv("GOOGLE_SHEETS_ID", ""),
             google_sheets_tab=os.getenv("GOOGLE_SHEETS_TAB", "pins"),

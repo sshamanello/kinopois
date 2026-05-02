@@ -20,6 +20,7 @@ class Config:
     # Directories
     data_dir: Path = field(default_factory=lambda: Path(os.getenv("DATA_DIR", "data")))
     posters_dir: Path = field(default_factory=lambda: Path(os.getenv("POSTERS_DIR", "data/posters")))
+    framed_posters_dir: Path = field(default_factory=lambda: Path(os.getenv("FRAMED_POSTERS_DIR", "data/posters_framed")))
     collages_dir: Path = field(default_factory=lambda: Path(os.getenv("COLLAGES_DIR", "data/collages")))
     cache_dir: Path = field(default_factory=lambda: Path(os.getenv("CACHE_DIR", "data/cache")))
 
@@ -44,6 +45,8 @@ class Config:
     bot_url: str = "https://t.me/TopTrailer82Bot"
     base_image_url: str = "https://sshamanello.ru/collages"
     posters_base_url: str = field(default_factory=lambda: os.getenv("POSTERS_BASE_URL", "https://sshamanello.ru/posters"))
+    framed_posters_base_url: str = field(default_factory=lambda: os.getenv("FRAMED_POSTERS_BASE_URL", "https://sshamanello.ru/posters_framed"))
+    use_framed_posters: bool = field(default_factory=lambda: os.getenv("USE_FRAMED_POSTERS", "1") == "1")
 
     # Google Sheets integration
     google_creds_file: str = field(default_factory=lambda: os.getenv("GOOGLE_CREDS_FILE", ""))
@@ -78,7 +81,9 @@ class Config:
         self.posters_dir.mkdir(parents=True, exist_ok=True)
         self.collages_dir.mkdir(parents=True, exist_ok=True)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
+        self.framed_posters_dir.mkdir(parents=True, exist_ok=True)
         self.posters_base_url = self.posters_base_url.rstrip("/")
+        self.framed_posters_base_url = self.framed_posters_base_url.rstrip("/")
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -87,6 +92,7 @@ class Config:
             kinopoisk_api_key=os.getenv("KINOPOISK_API_KEY", ""),
             data_dir=Path(os.getenv("DATA_DIR", "data")),
             posters_dir=Path(os.getenv("POSTERS_DIR", "data/posters")),
+            framed_posters_dir=Path(os.getenv("FRAMED_POSTERS_DIR", "data/posters_framed")),
             collages_dir=Path(os.getenv("COLLAGES_DIR", "data/collages")),
             cache_dir=Path(os.getenv("CACHE_DIR", "data/cache")),
             collage_tile_width=int(os.getenv("COLLAGE_TILE_WIDTH", "500")),
@@ -97,6 +103,8 @@ class Config:
             bot_url=os.getenv("BOT_URL", "https://t.me/TopTrailer82Bot"),
             base_image_url=os.getenv("BASE_IMAGE_URL", "https://sshamanello.ru/collages"),
             posters_base_url=os.getenv("POSTERS_BASE_URL", "https://sshamanello.ru/posters"),
+            framed_posters_base_url=os.getenv("FRAMED_POSTERS_BASE_URL", "https://sshamanello.ru/posters_framed"),
+            use_framed_posters=os.getenv("USE_FRAMED_POSTERS", "1") == "1",
             google_creds_file=os.getenv("GOOGLE_CREDS_FILE", ""),
             google_sheets_id=os.getenv("GOOGLE_SHEETS_ID", ""),
             google_sheets_tab=os.getenv("GOOGLE_SHEETS_TAB", "pins"),

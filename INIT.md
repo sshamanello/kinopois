@@ -50,3 +50,17 @@
 
 - Если `AUTOPILOT_PUBLISH_COMMAND` пустой, harvest/queue/sheets будут работать, но слот публикации будет помечаться как skip.
 - Для полностью автономной публикации нужен рабочий publish hook (или внешний n8n, который читает очередь/таблицу и постит сам).
+
+## Изменения 2026-05-02 (рамочные креативы)
+
+- В movie-pins пайплайн включены рамочные креативы по умолчанию:
+  - новый модуль: `kinopois/frame.py`
+  - экспорт теперь для каждого `kp_id` генерирует framed-изображение в `data/posters_framed/{kp_id}.jpg`
+  - `pins.csv:image_url` указывает на `FRAMED_POSTERS_BASE_URL/{kp_id}.jpg` при `USE_FRAMED_POSTERS=1`.
+- Рамка делается уникализированной (детерминированно от `kp_id`):
+  - разные акцентные цвета/полосы/зерно,
+  - без watermark/`@bot` на изображении.
+- Добавлены env-поля:
+  - `FRAMED_POSTERS_DIR`
+  - `FRAMED_POSTERS_BASE_URL`
+  - `USE_FRAMED_POSTERS`.

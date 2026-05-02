@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional
 from rich.console import Console
 
 from kinopois.config import config
+from kinopois.frame import render_framed_poster
 from kinopois.utils import read_csv_dict, safe_filename, write_csv_dict
 
 console = Console()
@@ -197,6 +198,11 @@ def export_movie_pins_csv(
         board = GENRE_BOARD_MAP.get(primary_genre, "Фильмы")
         kp_url = f"https://www.kinopoisk.ru/film/{kp_id}/"
         image_url = f"{config.posters_base_url}/{kp_id}.jpg"
+        if config.use_framed_posters:
+            framed_path = config.framed_posters_dir / f"{kp_id}.jpg"
+            if not framed_path.exists():
+                render_framed_poster(poster_path, framed_path, seed_key=kp_id)
+            image_url = f"{config.framed_posters_base_url}/{kp_id}.jpg"
 
         tmpl = MOVIE_DESC_TEMPLATES[i % len(MOVIE_DESC_TEMPLATES)]
         description = tmpl.format(

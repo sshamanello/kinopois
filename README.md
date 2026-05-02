@@ -10,6 +10,7 @@ CLI tool for downloading movie posters from Kinopoisk, building Pinterest-ready 
 - Sync pins to Google Sheets (upsert by ID)
 - Create 2x2 collages grouped by genre
 - Full pipeline in one command
+- Autonomous scheduler mode (daily harvest + timed posting slots)
 - Docker + cron deployment
 
 ## Architecture
@@ -78,17 +79,33 @@ Get your Kinopoisk API key at [kinopoisk.dev](https://kinopoisk.dev/).
 
 ```bash
 # Full pipeline: download -> process -> export pins.csv -> sync to Sheets
-kinopois run-pins --limit 200 --sync-sheets
+kinopois pins --limit 200 --sync-sheets
 
 # Without Sheets sync
-kinopois run-pins --limit 200
+kinopois pins --limit 200
 
 # Re-export pins.csv from existing movies_clean.csv
 kinopois export-movie-pins
 
 # Push existing pins.csv to Google Sheets
-kinopois sync-sheets
+kinopois sync
 ```
+
+### Autonomous server mode
+
+```bash
+# One pass (useful for health-check and cron testing)
+kinopois autopilot-once
+
+# Long-running daemon:
+# - harvest once per day (append mode, up to AUTOPILOT_DOWNLOAD_LIMIT_PER_DAY)
+# - then tries publish slots by AUTOPILOT_SLOT_HOURS
+kinopois autopilot
+```
+
+Autopilot is stateful and keeps `data/cache/autopilot_state.json`.
+It is designed for long-term backlog growth: daily harvest appends new movies
+to `movies.csv` instead of replacing old rows.
 
 ### Collage pipeline
 
@@ -191,8 +208,11 @@ board; board_id; status; created_at; posted_at; notes
 | Command | Description |
 |---------|-------------|
 | `kinopois run-pins` | Full pin pipeline (download + process + export + optional sync) |
+| `kinopois pins` | Full pin pipeline (download + process + export + optional sync) |
 | `kinopois export-movie-pins` | Re-export pins.csv from existing data |
-| `kinopois sync-sheets` | Push pins.csv to Google Sheets |
+| `kinopois sync` | Push pins.csv to Google Sheets |
+| `kinopois autopilot-once` | Run one autonomous tick (harvest + due slots) |
+| `kinopois autopilot` | Run autonomous daemon forever |
 | `kinopois run-prod` | Full collage pipeline |
 | `kinopois download` | Download movies from Kinopoisk |
 | `kinopois process` | Clean and process movies.csv |

@@ -9,6 +9,7 @@ from rich.console import Console
 from rich.progress import track
 
 from kinopois.config import config
+from kinopois.utils import read_csv_dict
 
 console = Console()
 
@@ -129,6 +130,7 @@ class KinopoiskScraper:
         self,
         output_csv: Optional[Path] = None,
         limit: int = 200,
+        append_mode: bool = False,
     ) -> Path:
         """Download movies with posters and save to CSV.
 
@@ -140,6 +142,14 @@ class KinopoiskScraper:
 
         collected = 0
         page = 1
+        existing_ids: set[str] = set()
+        output_csv.parent.mkdir(parents=True, exist_ok=True)
+
+        if append_mode and output_csv.exists():
+            for row in read_csv_dict(output_csv, config.csv_delimiter, config.csv_encoding):
+                kp_id = str(row.get("kp_id", "")).strip()
+                if kp_id:
+                    existing_ids.add(kp_id)
 
         fieldnames = [
             "kp_id",
@@ -152,9 +162,11 @@ class KinopoiskScraper:
             "poster_file",
         ]
 
-        with open(output_csv, "w", newline="", encoding=config.csv_encoding) as f:
+        mode = "a" if append_mode and output_csv.exists() else "w"
+        with open(output_csv, mode, newline="", encoding=config.csv_encoding) as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames, delimiter=config.csv_delimiter)
-            writer.writeheader()
+            if mode == "w":
+                writer.writeheader()
 
             while collected < limit:
                 movies, total_pages = self.fetch_movies(
@@ -175,13 +187,19 @@ class KinopoiskScraper:
 
                     data = self.extract_movie_data(movie)
                     poster_url = data.pop("poster_preview_url", "")
+                    kp_id = str(data.get("kp_id", "")).strip()
+
+                    if not kp_id:
+                        continue
+                    if append_mode and kp_id in existing_ids:
+                        continue
 
                     # Skip if no poster
                     if not poster_url:
                         continue
 
                     # Download poster
-                    poster_filename = f"{data['kp_id']}.jpg"
+                    poster_filename = f"{kp_id}.jpg"
                     poster_path = self.download_poster(poster_url, poster_filename)
 
                     if not poster_path:
@@ -189,6 +207,8 @@ class KinopoiskScraper:
 
                     data["poster_file"] = str(poster_path)
                     writer.writerow(data)
+                    if append_mode:
+                        existing_ids.add(kp_id)
 
                     collected += 1
                     console.print(f"[green][{collected}/{limit}][/green] {data['title']} ({data['year']})")

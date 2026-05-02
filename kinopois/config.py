@@ -57,6 +57,22 @@ class Config:
     csv_delimiter: str = ";"
     csv_encoding: str = "utf-8-sig"
 
+    # Autopilot scheduler
+    autopilot_enabled: bool = field(default_factory=lambda: os.getenv("AUTOPILOT_ENABLED", "0") == "1")
+    autopilot_download_limit_per_day: int = field(default_factory=lambda: int(os.getenv("AUTOPILOT_DOWNLOAD_LIMIT_PER_DAY", "200")))
+    autopilot_posts_per_day: int = field(default_factory=lambda: int(os.getenv("AUTOPILOT_POSTS_PER_DAY", "3")))
+    autopilot_slot_hours: str = field(default_factory=lambda: os.getenv("AUTOPILOT_SLOT_HOURS", "10,15,20"))
+    autopilot_slot_jitter_min: int = field(default_factory=lambda: int(os.getenv("AUTOPILOT_SLOT_JITTER_MIN", "20")))
+    autopilot_loop_sleep_sec: int = field(default_factory=lambda: int(os.getenv("AUTOPILOT_LOOP_SLEEP_SEC", "30")))
+    autopilot_state_file: Path = field(default_factory=lambda: Path(os.getenv("AUTOPILOT_STATE_FILE", "data/cache/autopilot_state.json")))
+    autopilot_publish_command: str = field(default_factory=lambda: os.getenv("AUTOPILOT_PUBLISH_COMMAND", ""))
+    autopilot_sync_sheets: bool = field(default_factory=lambda: os.getenv("AUTOPILOT_SYNC_SHEETS", "1") == "1")
+    autopilot_sync_queue: bool = field(default_factory=lambda: os.getenv("AUTOPILOT_SYNC_QUEUE", "1") == "1")
+
+    # Telegram alerts (optional)
+    telegram_bot_token: str = field(default_factory=lambda: os.getenv("TELEGRAM_BOT_TOKEN", ""))
+    telegram_chat_id: str = field(default_factory=lambda: os.getenv("TELEGRAM_CHAT_ID", ""))
+
     def __post_init__(self):
         """Create directories if they don't exist."""
         self.posters_dir.mkdir(parents=True, exist_ok=True)
@@ -85,6 +101,18 @@ class Config:
             google_sheets_id=os.getenv("GOOGLE_SHEETS_ID", ""),
             google_sheets_tab=os.getenv("GOOGLE_SHEETS_TAB", "pins"),
             pinterest_board_id=os.getenv("PINTEREST_BOARD_ID", ""),
+            autopilot_enabled=os.getenv("AUTOPILOT_ENABLED", "0") == "1",
+            autopilot_download_limit_per_day=int(os.getenv("AUTOPILOT_DOWNLOAD_LIMIT_PER_DAY", "200")),
+            autopilot_posts_per_day=int(os.getenv("AUTOPILOT_POSTS_PER_DAY", "3")),
+            autopilot_slot_hours=os.getenv("AUTOPILOT_SLOT_HOURS", "10,15,20"),
+            autopilot_slot_jitter_min=int(os.getenv("AUTOPILOT_SLOT_JITTER_MIN", "20")),
+            autopilot_loop_sleep_sec=int(os.getenv("AUTOPILOT_LOOP_SLEEP_SEC", "30")),
+            autopilot_state_file=Path(os.getenv("AUTOPILOT_STATE_FILE", "data/cache/autopilot_state.json")),
+            autopilot_publish_command=os.getenv("AUTOPILOT_PUBLISH_COMMAND", ""),
+            autopilot_sync_sheets=os.getenv("AUTOPILOT_SYNC_SHEETS", "1") == "1",
+            autopilot_sync_queue=os.getenv("AUTOPILOT_SYNC_QUEUE", "1") == "1",
+            telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN", ""),
+            telegram_chat_id=os.getenv("TELEGRAM_CHAT_ID", ""),
         )
 
 

@@ -19,6 +19,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from kinopois import __version__
+from kinopois.autopilot import Autopilot
 from kinopois.collage import create_collages
 from kinopois.config import config
 from kinopois.export import (
@@ -811,6 +812,19 @@ def interactive(ctx):
     from kinopois.interactive import interactive as run_interactive
 
     run_interactive()
+
+
+@main.command("autopilot-once")
+def autopilot_once_cmd():
+    """Run one autopilot tick sequence (harvest + due post slots)."""
+    Autopilot().run_once()
+    print_success("Autopilot one-shot run complete")
+
+
+@main.command("autopilot")
+def autopilot_daemon_cmd():
+    """Run autonomous scheduler forever."""
+    Autopilot().run_forever()
 
 
 if __name__ == "__main__":

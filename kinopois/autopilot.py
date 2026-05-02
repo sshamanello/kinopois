@@ -125,15 +125,32 @@ class Autopilot:
         self._notify(msg)
 
     def _run_post_slot(self, state: Dict[str, Any], slot_key: str) -> None:
-        ready_jobs = get_ready_jobs(limit=1)
+        attempts = max(1, int(config.autopilot_publish_attempts_per_slot))
+        ready_jobs = get_ready_jobs(limit=attempts)
         if not ready_jobs:
             console.print("[yellow]No ready publish jobs for slot[/yellow]")
             state.setdefault("posted_slots", {})[slot_key] = "no_jobs"
             return
 
-        job = ready_jobs[0]
+        for job in ready_jobs:
+            ok, result = self._publish_single_job(job)
+            if ok:
+                pin_id = result
+                mark_posted(job["id"], pin_id)
+                state.setdefault("posted_slots", {})[slot_key] = "posted"
+                state["posted_count"] = int(state.get("posted_count", 0)) + 1
+                console.print(f"[green]Posted job {job['id']} (pin_id={pin_id})[/green]")
+                return
+
+            error = result
+            mark_failed(job["id"], error[:1500])
+            self._notify(f"Publish failed for job={job['id']}: {error[:180]}")
+
+        state.setdefault("posted_slots", {})[slot_key] = "failed_all"
+        console.print("[yellow]Slot ended with failures for all attempted jobs[/yellow]")
+
+    def _publish_single_job(self, job: Dict[str, Any]) -> tuple[bool, str]:
         command = config.autopilot_publish_command.strip()
-        pin_id = ""
         if command:
             payload = json.dumps(job, ensure_ascii=False)
             proc = subprocess.run(
@@ -143,31 +160,20 @@ class Autopilot:
                 capture_output=True,
                 input=payload,
             )
-
             if proc.returncode != 0:
                 error = (proc.stderr or proc.stdout or "publish command failed").strip()
-                mark_failed(job["id"], error[:1500])
-                state.setdefault("posted_slots", {})[slot_key] = "failed"
-                self._notify(f"Publish failed for job={job['id']}: {error[:180]}")
-                return
+                return False, error
 
             pin_id = self._extract_pin_id(proc.stdout)
             if not pin_id:
                 pin_id = f"external-{int(time.time())}"
-        else:
-            try:
-                pin_id = publish_pin(job)
-            except Exception as exc:
-                error = str(exc).strip() or "direct publish failed"
-                mark_failed(job["id"], error[:1500])
-                state.setdefault("posted_slots", {})[slot_key] = "failed"
-                self._notify(f"Publish failed for job={job['id']}: {error[:180]}")
-                return
+            return True, pin_id
 
-        mark_posted(job["id"], pin_id)
-        state.setdefault("posted_slots", {})[slot_key] = "posted"
-        state["posted_count"] = int(state.get("posted_count", 0)) + 1
-        console.print(f"[green]Posted job {job['id']} (pin_id={pin_id})[/green]")
+        try:
+            return True, publish_pin(job)
+        except Exception as exc:
+            error = str(exc).strip() or "direct publish failed"
+            return False, error
 
     def _extract_pin_id(self, raw: str) -> str:
         raw = (raw or "").strip()

@@ -101,20 +101,44 @@ def _clip_title(value: str, limit: int = 100) -> str:
 
 
 def _build_seo_title(title: str, genre: str, year: str, rating: str, i: int) -> str:
+    genre_label = {
+        "драма": "драмы",
+        "комедия": "комедии",
+        "триллер": "триллеры",
+        "мелодрама": "мелодрамы",
+        "боевик": "боевики",
+        "ужасы": "ужасы",
+        "фантастика": "фантастика",
+        "фэнтези": "фэнтези",
+        "криминал": "криминал",
+        "мультфильм": "мультфильмы",
+        "аниме": "аниме",
+        "документальный": "документальное кино",
+        "детектив": "детективы",
+        "короткометражка": "короткометражные фильмы",
+        "концерт": "концерты",
+        "реальное тв": "реалити-шоу",
+    }.get(genre, genre)
+
+    score = rating if rating != "—" else "без рейтинга"
     templates = [
-        "{title} ({year}) — {genre}, рейтинг {rating}",
-        "Что посмотреть: {title} ({year}) — {genre}",
-        "{genre}: {title} ({year})",
-        "{title} — {genre} с рейтингом {rating}",
-        "{title}: лучший {genre} на вечер",
-        "{title} ({year}) — кино в жанре {genre}",
+        "Что посмотреть вечером: {title} ({year}) | {genre_label}",
+        "{title} ({year}) — фильм на вечер | {genre_label}",
+        "Топ находка: {title} ({year}) — {genre_label}, рейтинг {score}",
+        "{genre_label}: {title} ({year}) | рейтинг {score}",
+        "{title} — рекомендация в жанре {genre_label} ({year})",
+        "Лучшие {genre_label}: {title} ({year})",
+        "{title} ({year}) — что посмотреть сегодня | {genre_label}",
+        "Сохраните в подборку: {title} — {genre_label}, рейтинг {score}",
     ]
     t = templates[i % len(templates)]
     out = t.format(
         title=title,
         genre=genre,
+        genre_label=genre_label,
         year=year or "год неизвестен",
-        rating=rating if rating != "—" else "без оценки",
+        rating=rating,
+        score=score,
     )
     return _clip_title(out, 100)
 

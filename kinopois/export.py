@@ -143,6 +143,35 @@ def _build_seo_title(title: str, genre: str, year: str, rating: str, i: int) -> 
     return _clip_title(out, 100)
 
 
+def _build_seo_description(
+    title: str,
+    genre: str,
+    year: str,
+    rating: str,
+    bot_url: str,
+    i: int,
+) -> str:
+    year_label = year or "год неизвестен"
+    score = rating if rating != "—" else "без рейтинга"
+    templates = [
+        "{title} ({year_label}) — {genre}. Рейтинг КП: {score}. Что посмотреть вечером: сохраняйте пин и переходите в бота за подборками {bot_url}",
+        "Ищете хороший {genre}? {title} ({year_label}) с рейтингом {score}. Больше фильмов по настроению в Telegram: {bot_url}",
+        "{title} — фильм в жанре {genre}, рейтинг Кинопоиска {score}. Подборки на вечер и похожее кино: {bot_url}",
+        "{genre} на вечер: {title} ({year_label}), рейтинг {score}. Сохраняйте идею и забирайте новые рекомендации в боте {bot_url}",
+        "Что посмотреть сегодня: {title} ({year_label}), жанр — {genre}, рейтинг КП {score}. Ещё варианты в боте: {bot_url}",
+        "{title} ({year_label}) — {genre} для вашей подборки. Рейтинг: {score}. Нажмите в бота и получите следующую идею: {bot_url}",
+    ]
+    t = templates[i % len(templates)]
+    out = t.format(
+        title=title,
+        genre=genre,
+        year_label=year_label,
+        score=score,
+        bot_url=bot_url,
+    )
+    return out[:800]
+
+
 def _refresh_clean_poster(kp_id: str, poster_url: str, fallback_path: Path) -> Path:
     if not config.framed_refresh_source or not poster_url:
         return fallback_path
@@ -175,24 +204,6 @@ GENRE_BOARD_MAP = {
     "реальное тв": "Реалити-шоу",
     "короткометражка": "Короткометражки",
 }
-
-MOVIE_DESC_TEMPLATES = [
-    "«{title}» — {genre} с рейтингом {rating} на Кинопоиске. Подборки по настроению: {bot_url}",
-    "{title} ({year}). Рейтинг КП: {rating}. Жанр: {genre}. Найди похожее: {bot_url}",
-    "Один из лучших {genre} — «{title}». Рейтинг {rating}. Кино-бот в Telegram: {bot_url}",
-    "Смотри сегодня: «{title}» ({year}), {genre}, рейтинг КП {rating}. {bot_url}",
-    "«{title}» — это {genre}, который стоит посмотреть. Рейтинг {rating}. Больше подборок: {bot_url}",
-    "{title} — отличный выбор на вечер. {genre}, рейтинг {rating}. Кино-бот: {bot_url}",
-    "Рейтинг {rating} на Кинопоиске — «{title}». {genre} {year} года. Подборки: {bot_url}",
-    "Ищешь хороший {genre}? «{title}» с рейтингом {rating} — то что нужно. {bot_url}",
-    "«{title}» ({year}) — {genre} с рейтингом {rating}. Рекомендации по жанрам: {bot_url}",
-    "{title}: {genre}, {year} год, рейтинг КП {rating}. Найди похожие фильмы: {bot_url}",
-    "Топовый {genre} — «{title}», рейтинг {rating}. Больше кино по настроению: {bot_url}",
-    "«{title}» {year} года. {genre}, рейтинг {rating}. Кино-бот подберёт ещё: {bot_url}",
-    "{genre} «{title}» с рейтингом {rating}. Смотри и делись с друзьями. {bot_url}",
-    "Рейтинг {rating} — «{title}» ({year}). Хороший {genre} на вечер. {bot_url}",
-    "«{title}» — {genre} {year} года, рейтинг Кинопоиска {rating}. {bot_url}",
-]
 
 _MOVIE_PIN_FIELDNAMES = [
     "id", "image_url", "poster_url", "title", "original_title",
@@ -271,13 +282,13 @@ def export_movie_pins_csv(
                 render_framed_poster(source_for_frame, framed_path, seed_key=kp_id)
             image_url = f"{config.framed_posters_base_url}/{kp_id}.jpg"
 
-        tmpl = MOVIE_DESC_TEMPLATES[i % len(MOVIE_DESC_TEMPLATES)]
-        description = tmpl.format(
+        description = _build_seo_description(
             title=movie_title,
             genre=primary_genre,
+            year=year,
             rating=rating,
-            year=year or "—",
             bot_url=config.bot_url,
+            i=i,
         )
 
         keywords = _build_keywords(

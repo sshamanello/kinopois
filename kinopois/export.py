@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import requests
 from rich.console import Console
 
 from kinopois.config import config
@@ -90,6 +91,20 @@ def _build_keywords(*parts) -> str:
 
 def _is_valid_pin_row(kp_id: str, title: str, primary_genre: str) -> bool:
     return bool(kp_id and title and primary_genre)
+
+
+def _refresh_clean_poster(kp_id: str, poster_url: str, fallback_path: Path) -> Path:
+    if not config.framed_refresh_source or not poster_url:
+        return fallback_path
+
+    clean_path = config.framed_source_posters_dir / f"{kp_id}.jpg"
+    try:
+        response = requests.get(poster_url, timeout=20)
+        response.raise_for_status()
+        clean_path.write_bytes(response.content)
+        return clean_path
+    except Exception:
+        return fallback_path
 
 
 GENRE_BOARD_MAP = {
@@ -199,9 +214,10 @@ def export_movie_pins_csv(
         kp_url = f"https://www.kinopoisk.ru/film/{kp_id}/"
         image_url = f"{config.posters_base_url}/{kp_id}.jpg"
         if config.use_framed_posters:
+            source_for_frame = _refresh_clean_poster(kp_id, poster_url, poster_path)
             framed_path = config.framed_posters_dir / f"{kp_id}.jpg"
             if not framed_path.exists():
-                render_framed_poster(poster_path, framed_path, seed_key=kp_id)
+                render_framed_poster(source_for_frame, framed_path, seed_key=kp_id)
             image_url = f"{config.framed_posters_base_url}/{kp_id}.jpg"
 
         tmpl = MOVIE_DESC_TEMPLATES[i % len(MOVIE_DESC_TEMPLATES)]

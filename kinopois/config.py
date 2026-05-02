@@ -20,6 +20,7 @@ class Config:
     # Directories
     data_dir: Path = field(default_factory=lambda: Path(os.getenv("DATA_DIR", "data")))
     posters_dir: Path = field(default_factory=lambda: Path(os.getenv("POSTERS_DIR", "data/posters")))
+    framed_source_posters_dir: Path = field(default_factory=lambda: Path(os.getenv("FRAMED_SOURCE_POSTERS_DIR", "data/posters_clean")))
     framed_posters_dir: Path = field(default_factory=lambda: Path(os.getenv("FRAMED_POSTERS_DIR", "data/posters_framed")))
     collages_dir: Path = field(default_factory=lambda: Path(os.getenv("COLLAGES_DIR", "data/collages")))
     cache_dir: Path = field(default_factory=lambda: Path(os.getenv("CACHE_DIR", "data/cache")))
@@ -47,6 +48,7 @@ class Config:
     posters_base_url: str = field(default_factory=lambda: os.getenv("POSTERS_BASE_URL", "https://sshamanello.ru/posters"))
     framed_posters_base_url: str = field(default_factory=lambda: os.getenv("FRAMED_POSTERS_BASE_URL", "https://sshamanello.ru/posters_framed"))
     use_framed_posters: bool = field(default_factory=lambda: os.getenv("USE_FRAMED_POSTERS", "1") == "1")
+    framed_refresh_source: bool = field(default_factory=lambda: os.getenv("FRAMED_REFRESH_SOURCE", "1") == "1")
 
     # Google Sheets integration
     google_creds_file: str = field(default_factory=lambda: os.getenv("GOOGLE_CREDS_FILE", ""))
@@ -81,6 +83,7 @@ class Config:
         self.posters_dir.mkdir(parents=True, exist_ok=True)
         self.collages_dir.mkdir(parents=True, exist_ok=True)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
+        self.framed_source_posters_dir.mkdir(parents=True, exist_ok=True)
         self.framed_posters_dir.mkdir(parents=True, exist_ok=True)
         self.posters_base_url = self.posters_base_url.rstrip("/")
         self.framed_posters_base_url = self.framed_posters_base_url.rstrip("/")
@@ -92,6 +95,7 @@ class Config:
             kinopoisk_api_key=os.getenv("KINOPOISK_API_KEY", ""),
             data_dir=Path(os.getenv("DATA_DIR", "data")),
             posters_dir=Path(os.getenv("POSTERS_DIR", "data/posters")),
+            framed_source_posters_dir=Path(os.getenv("FRAMED_SOURCE_POSTERS_DIR", "data/posters_clean")),
             framed_posters_dir=Path(os.getenv("FRAMED_POSTERS_DIR", "data/posters_framed")),
             collages_dir=Path(os.getenv("COLLAGES_DIR", "data/collages")),
             cache_dir=Path(os.getenv("CACHE_DIR", "data/cache")),
@@ -105,6 +109,7 @@ class Config:
             posters_base_url=os.getenv("POSTERS_BASE_URL", "https://sshamanello.ru/posters"),
             framed_posters_base_url=os.getenv("FRAMED_POSTERS_BASE_URL", "https://sshamanello.ru/posters_framed"),
             use_framed_posters=os.getenv("USE_FRAMED_POSTERS", "1") == "1",
+            framed_refresh_source=os.getenv("FRAMED_REFRESH_SOURCE", "1") == "1",
             google_creds_file=os.getenv("GOOGLE_CREDS_FILE", ""),
             google_sheets_id=os.getenv("GOOGLE_SHEETS_ID", ""),
             google_sheets_tab=os.getenv("GOOGLE_SHEETS_TAB", "pins"),

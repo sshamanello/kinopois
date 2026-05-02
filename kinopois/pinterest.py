@@ -26,7 +26,7 @@ def publish_pin(job: Dict[str, Any]) -> str:
     image_url = str(job.get("image_url") or "").strip()
     title = str(job.get("title") or "").strip()
     description = str(job.get("description") or "").strip()
-    link = str(job.get("link") or "").strip()
+    link = str(job.get("link") or config.bot_url or "").strip()
 
     if not image_url:
         raise PinterestPublishError("image_url is empty")

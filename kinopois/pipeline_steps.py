@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import shutil
+import subprocess
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
+import requests
 from rich.console import Console
 
 from kinopois.config import config
@@ -52,14 +54,42 @@ def step_upload_to_server(pins_csv: Path) -> Dict[str, int]:
         ]
         src = next((p for p in src_candidates if p.exists()), None)
         if not src:
-            row["vds_upload_status"] = "upload_failed"
-            row["error_reason"] = "source_image_not_found"
-            failed += 1
-            continue
+            poster_url = str(row.get("poster_url", "")).strip()
+            if poster_url:
+                try:
+                    config.posters_dir.mkdir(parents=True, exist_ok=True)
+                    downloaded_src = config.posters_dir / f"{kp_id}.jpg"
+                    resp = requests.get(poster_url, timeout=25)
+                    resp.raise_for_status()
+                    downloaded_src.write_bytes(resp.content)
+                    src = downloaded_src
+                except Exception as exc:
+                    row["vds_upload_status"] = "upload_failed"
+                    row["error_reason"] = f"source_download_failed:{exc}"[:500]
+                    failed += 1
+                    continue
+            else:
+                row["vds_upload_status"] = "upload_failed"
+                row["error_reason"] = "source_image_not_found"
+                failed += 1
+                continue
 
         dst = config.publish_images_dir / f"{kp_id}.jpg"
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dst)
+
+        if config.publish_remote_sync_enabled and config.publish_remote_host:
+            remote = f"{config.publish_remote_user}@{config.publish_remote_host}:{config.publish_remote_dir.rstrip('/')}/{kp_id}.jpg"
+            proc = subprocess.run(
+                ["scp", "-o", "StrictHostKeyChecking=no", str(dst), remote],
+                capture_output=True,
+                text=True,
+            )
+            if proc.returncode != 0:
+                row["vds_upload_status"] = "upload_failed"
+                row["error_reason"] = (proc.stderr or proc.stdout or "remote_scp_failed").strip()[:500]
+                failed += 1
+                continue
 
         row["public_image_url"] = f"{config.publish_images_base_url}/{kp_id}.jpg"
         row["remote_image_path"] = str(dst)
@@ -99,7 +129,24 @@ def step_cleanup_publish_dir() -> Dict[str, int]:
         except Exception:
             kept += 1
 
-    return {"deleted": deleted, "kept": kept, "scanned": scanned}
+    remote_deleted = 0
+    if config.publish_remote_sync_enabled and config.publish_remote_host:
+        cmd = (
+            f"find {config.publish_remote_dir.rstrip('/')} -type f -name '*.jpg' "
+            f"-mtime +{max(1, int(config.publish_images_retention_days))} -delete -print | wc -l"
+        )
+        proc = subprocess.run(
+            ["ssh", "-o", "StrictHostKeyChecking=no", f"{config.publish_remote_user}@{config.publish_remote_host}", cmd],
+            capture_output=True,
+            text=True,
+        )
+        if proc.returncode == 0:
+            try:
+                remote_deleted = int((proc.stdout or "0").strip().splitlines()[-1])
+            except Exception:
+                remote_deleted = 0
+
+    return {"deleted": deleted, "kept": kept, "scanned": scanned, "remote_deleted": remote_deleted}
 
 
 def step_queue_sync(pins_csv: Path) -> int:

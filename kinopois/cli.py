@@ -44,6 +44,7 @@ from kinopois.scraper import KinopoiskScraper
 
 try:
     from kinopois.sheets import normalize_sheet_statuses as _normalize_sheet_statuses
+    from kinopois.sheets import sync_upload_fields_to_sheets as _sync_upload_fields_to_sheets
     from kinopois.sheets import sync_pins_to_sheets as _sync_sheets
 
     _SHEETS_AVAILABLE = True
@@ -865,6 +866,19 @@ def run_base_pipeline_cmd(limit, publish):
     if publish > 0:
         pub = step_publish(limit=publish)
         print_success(f"Publish complete: {pub}")
+
+
+@main.command("backfill-assets")
+@click.option("--limit", default=200, type=int, help="Download limit for this run")
+def backfill_assets_cmd(limit):
+    """Full backfill: download/process/export/upload + upload-fields sync to Sheets."""
+    stats = run_daily_prepare(max(1, int(limit)))
+    print_success(f"Backfill prepare complete: {stats}")
+    if not _SHEETS_AVAILABLE:
+        print_error("Google Sheets integration not available", "Run: pip install gspread google-auth")
+        raise click.Abort()
+    up = _sync_upload_fields_to_sheets(config.cache_dir / "pins.csv")
+    print_success(f"Upload-fields synced: {up}")
 
 
 if __name__ == "__main__":

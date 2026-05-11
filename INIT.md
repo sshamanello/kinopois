@@ -210,3 +210,29 @@
   - новый шаг `step_cleanup_publish_dir()` в `pipeline_steps.py`
   - вызывается автоматически в `run_daily_prepare`.
 - `.env.example` и `README.md` обновлены под схему `87.120.219.4` + cleanup.
+
+## Изменения 2026-05-11 (remote sync to 87.120.219.4)
+
+- Добавлена опциональная удалённая выгрузка publish-изображений:
+  - `PUBLISH_REMOTE_SYNC_ENABLED`
+  - `PUBLISH_REMOTE_HOST`
+  - `PUBLISH_REMOTE_USER`
+  - `PUBLISH_REMOTE_DIR`
+- При включении (`PUBLISH_REMOTE_SYNC_ENABLED=1`) `step_upload_to_server()`:
+  - копирует файл локально,
+  - затем отправляет `scp` на удалённый хост (`87.120.219.4`).
+- В `step_cleanup_publish_dir()` добавлена удалённая очистка:
+  - `ssh find ... -mtime +N -delete` по `PUBLISH_IMAGES_RETENTION_DAYS`.
+
+## Изменения 2026-05-11 (hard backfill for images + sheets)
+
+- `step_upload_to_server()` усилен fallback-логикой:
+  - если локальный source-постер не найден, выполняется докачка по `poster_url`,
+    затем файл отправляется в publish-контур.
+- Добавлен selective sync upload-полей в Sheets:
+  - `sync_upload_fields_to_sheets()` обновляет по `id` только:
+    `image_url`, `public_image_url`, `remote_image_path`,
+    `vds_upload_status`, `uploaded_at`, `publish_status`, `error_reason`.
+- Добавлена CLI-команда:
+  - `kinopois backfill-assets --limit 200`
+  - выполняет prepare + selective upload-fields sync в таблицу.

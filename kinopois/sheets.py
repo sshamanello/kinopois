@@ -215,3 +215,54 @@ def normalize_sheet_statuses() -> Dict[str, int]:
         ws.batch_update(updates, value_input_option="USER_ENTERED")
 
     return stats
+
+
+def sync_upload_fields_to_sheets(csv_path: Optional[Path] = None) -> Dict[str, int]:
+    """Sync only upload-related fields by id, preserving content/status fields."""
+    from rich.console import Console
+    import gspread
+
+    console = Console()
+    if csv_path is None:
+        csv_path = config.cache_dir / "pins.csv"
+    if not Path(csv_path).exists():
+        raise FileNotFoundError(f"pins.csv not found: {csv_path}")
+
+    rows = read_csv_dict(csv_path, config.csv_delimiter, config.csv_encoding)
+    if not rows:
+        return {"updated": 0, "skipped": 0, "total": 0}
+
+    gc = _get_client()
+    ws = _get_worksheet(gc)
+    _ensure_header(ws)
+
+    sheet_rows = ws.get_all_records(expected_headers=SHEET_HEADERS)
+    sheet_by_id = {str(r.get("id", "")).strip(): idx + 2 for idx, r in enumerate(sheet_rows) if r.get("id")}
+
+    fields = ["image_url", "public_image_url", "remote_image_path", "vds_upload_status", "uploaded_at", "publish_status", "error_reason"]
+    updates = []
+    updated = 0
+    skipped = 0
+
+    for row in rows:
+        pid = str(row.get("id", "")).strip()
+        if not pid or pid not in sheet_by_id:
+            skipped += 1
+            continue
+        rnum = sheet_by_id[pid]
+        for f in fields:
+            cnum = SHEET_HEADERS.index(f) + 1
+            updates.append(
+                {
+                    "range": gspread.utils.rowcol_to_a1(rnum, cnum),
+                    "values": [[str(row.get(f, ""))]],
+                }
+            )
+        updated += 1
+
+    if updates:
+        ws.batch_update(updates, value_input_option="USER_ENTERED")
+
+    stats = {"updated": updated, "skipped": skipped, "total": len(rows)}
+    console.print(f"[green]Upload fields sync:[/green] {updated} updated, {skipped} skipped (total {len(rows)})")
+    return stats

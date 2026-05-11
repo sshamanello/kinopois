@@ -44,14 +44,16 @@ class Config:
 
     # Export
     bot_url: str = "https://t.me/TopTrailer82Bot"
-    base_image_url: str = "https://sshamanello.ru/collages"
-    posters_base_url: str = field(default_factory=lambda: os.getenv("POSTERS_BASE_URL", "https://sshamanello.ru/posters"))
-    framed_posters_base_url: str = field(default_factory=lambda: os.getenv("FRAMED_POSTERS_BASE_URL", "https://sshamanello.ru/posters_framed"))
+    base_image_url: str = "http://87.120.219.4/collages"
+    posters_base_url: str = field(default_factory=lambda: os.getenv("POSTERS_BASE_URL", "http://87.120.219.4/posters"))
+    framed_posters_base_url: str = field(default_factory=lambda: os.getenv("FRAMED_POSTERS_BASE_URL", "http://87.120.219.4/posters_framed"))
     use_framed_posters: bool = field(default_factory=lambda: os.getenv("USE_FRAMED_POSTERS", "1") == "1")
     framed_refresh_source: bool = field(default_factory=lambda: os.getenv("FRAMED_REFRESH_SOURCE", "1") == "1")
     framed_force_regenerate: bool = field(default_factory=lambda: os.getenv("FRAMED_FORCE_REGENERATE", "1") == "1")
     publish_images_dir: Path = field(default_factory=lambda: Path(os.getenv("PUBLISH_IMAGES_DIR", "data/publish/ready")))
     publish_images_base_url: str = field(default_factory=lambda: os.getenv("PUBLISH_IMAGES_BASE_URL", "http://87.120.219.4/pins/ready"))
+    publish_images_cleanup_enabled: bool = field(default_factory=lambda: os.getenv("PUBLISH_IMAGES_CLEANUP_ENABLED", "1") == "1")
+    publish_images_retention_days: int = field(default_factory=lambda: int(os.getenv("PUBLISH_IMAGES_RETENTION_DAYS", "21")))
 
     # Google Sheets integration
     google_creds_file: str = field(default_factory=lambda: os.getenv("GOOGLE_CREDS_FILE", ""))
@@ -113,14 +115,16 @@ class Config:
             watermark_text=os.getenv("WATERMARK_TEXT", "@TopTrailer82Bot"),
             watermark_position=os.getenv("WATERMARK_POSITION", "bottom"),
             bot_url=os.getenv("BOT_URL", "https://t.me/TopTrailer82Bot"),
-            base_image_url=os.getenv("BASE_IMAGE_URL", "https://sshamanello.ru/collages"),
-            posters_base_url=os.getenv("POSTERS_BASE_URL", "https://sshamanello.ru/posters"),
-            framed_posters_base_url=os.getenv("FRAMED_POSTERS_BASE_URL", "https://sshamanello.ru/posters_framed"),
+            base_image_url=os.getenv("BASE_IMAGE_URL", "http://87.120.219.4/collages"),
+            posters_base_url=os.getenv("POSTERS_BASE_URL", "http://87.120.219.4/posters"),
+            framed_posters_base_url=os.getenv("FRAMED_POSTERS_BASE_URL", "http://87.120.219.4/posters_framed"),
             use_framed_posters=os.getenv("USE_FRAMED_POSTERS", "1") == "1",
             framed_refresh_source=os.getenv("FRAMED_REFRESH_SOURCE", "1") == "1",
             framed_force_regenerate=os.getenv("FRAMED_FORCE_REGENERATE", "1") == "1",
             publish_images_dir=Path(os.getenv("PUBLISH_IMAGES_DIR", "data/publish/ready")),
             publish_images_base_url=os.getenv("PUBLISH_IMAGES_BASE_URL", "http://87.120.219.4/pins/ready"),
+            publish_images_cleanup_enabled=os.getenv("PUBLISH_IMAGES_CLEANUP_ENABLED", "1") == "1",
+            publish_images_retention_days=int(os.getenv("PUBLISH_IMAGES_RETENTION_DAYS", "21")),
             google_creds_file=os.getenv("GOOGLE_CREDS_FILE", ""),
             google_sheets_id=os.getenv("GOOGLE_SHEETS_ID", ""),
             google_sheets_tab=os.getenv("GOOGLE_SHEETS_TAB", "pins"),

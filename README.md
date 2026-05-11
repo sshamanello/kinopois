@@ -109,6 +109,13 @@ kinopois autopilot
 kinopois run-base-pipeline --limit 200
 ```
 
+Image hosting for Pinterest should point to `http://87.120.219.4/pins/ready`.
+Set:
+- `PUBLISH_IMAGES_DIR=/var/www/html/pins/ready`
+- `PUBLISH_IMAGES_BASE_URL=http://87.120.219.4/pins/ready`
+- `PUBLISH_IMAGES_CLEANUP_ENABLED=1`
+- `PUBLISH_IMAGES_RETENTION_DAYS=21`
+
 Autopilot is stateful and keeps `data/cache/autopilot_state.json`.
 It is designed for long-term backlog growth: daily harvest appends new movies
 to `movies.csv` instead of replacing old rows.

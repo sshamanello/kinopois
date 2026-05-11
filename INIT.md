@@ -198,3 +198,15 @@
   - если `download` запущен в режиме перезаписи и API вернул 0 фильмов,
     `movies.csv` автоматически восстанавливается из предыдущего снапшота.
 - Это защищает прод-контур от ситуации «временный 403 обнулил очередь».
+
+## Изменения 2026-05-11 (switch off sshamanello + auto-cleanup on VDS)
+
+- Убраны дефолтные URL `sshamanello.ru` из `config.py`:
+  - `BASE_IMAGE_URL`, `POSTERS_BASE_URL`, `FRAMED_POSTERS_BASE_URL`
+  - теперь дефолты указывают на `http://87.120.219.4/...`.
+- Добавлена автоочистка publish-директории:
+  - `PUBLISH_IMAGES_CLEANUP_ENABLED` (default `1`)
+  - `PUBLISH_IMAGES_RETENTION_DAYS` (default `21`)
+  - новый шаг `step_cleanup_publish_dir()` в `pipeline_steps.py`
+  - вызывается автоматически в `run_daily_prepare`.
+- `.env.example` и `README.md` обновлены под схему `87.120.219.4` + cleanup.

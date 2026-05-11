@@ -76,6 +76,30 @@ def step_upload_to_server(pins_csv: Path) -> Dict[str, int]:
     return {"uploaded": uploaded, "failed": failed, "total": len(rows)}
 
 
+def step_cleanup_publish_dir() -> Dict[str, int]:
+    if not config.publish_images_cleanup_enabled:
+        return {"deleted": 0, "kept": 0, "scanned": 0}
+
+    keep_days = max(1, int(config.publish_images_retention_days))
+    cutoff_ts = datetime.now().timestamp() - keep_days * 86400
+    deleted = 0
+    kept = 0
+    scanned = 0
+
+    for path in config.publish_images_dir.glob("*.jpg"):
+        scanned += 1
+        try:
+            if path.stat().st_mtime < cutoff_ts:
+                path.unlink(missing_ok=True)
+                deleted += 1
+            else:
+                kept += 1
+        except Exception:
+            kept += 1
+
+    return {"deleted": deleted, "kept": kept, "scanned": scanned}
+
+
 def step_queue_sync(pins_csv: Path) -> int:
     return sync_pins_csv(pins_csv)
 
@@ -105,11 +129,15 @@ def run_daily_prepare(limit: int) -> Dict[str, int]:
     clean_csv = step_process(movies_csv)
     pins_csv = step_export(clean_csv)
     upload_stats = step_upload_to_server(pins_csv)
+    cleanup_stats = step_cleanup_publish_dir()
     inserted = step_queue_sync(pins_csv)
-    console.print(f"[green]Daily prepare done[/green]: upload={upload_stats}, queue_inserted={inserted}")
+    console.print(
+        f"[green]Daily prepare done[/green]: upload={upload_stats}, cleanup={cleanup_stats}, queue_inserted={inserted}"
+    )
     return {
         "download_limit": limit,
         "uploaded": upload_stats["uploaded"],
         "upload_failed": upload_stats["failed"],
+        "publish_dir_deleted": cleanup_stats["deleted"],
         "queue_inserted": inserted,
     }

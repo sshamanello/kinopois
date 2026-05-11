@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import base64
+from pathlib import Path
 from typing import Any, Dict
+from urllib.parse import urlparse
 
 import requests
 
@@ -11,6 +14,23 @@ from kinopois.config import config
 
 class PinterestPublishError(RuntimeError):
     """Raised when Pinterest publish fails."""
+
+
+def _resolve_local_image_path(job: Dict[str, Any]) -> Path | None:
+    image_url = str(job.get("image_url") or "").strip()
+    if not image_url:
+        return None
+
+    path = urlparse(image_url).path
+    filename = Path(path).name
+    if not filename:
+        return None
+
+    for directory in (config.framed_posters_dir, config.posters_dir, config.framed_source_posters_dir):
+        candidate = Path(directory) / filename
+        if candidate.exists():
+            return candidate
+    return None
 
 
 def publish_pin(job: Dict[str, Any]) -> str:
@@ -33,14 +53,26 @@ def publish_pin(job: Dict[str, Any]) -> str:
     if not title:
         raise PinterestPublishError("title is empty")
 
+    media_source: Dict[str, Any]
+    local_image = _resolve_local_image_path(job)
+    if local_image:
+        raw = local_image.read_bytes()
+        media_source = {
+            "source_type": "image_base64",
+            "content_type": "image/jpeg",
+            "data": base64.b64encode(raw).decode("ascii"),
+        }
+    else:
+        media_source = {
+            "source_type": "image_url",
+            "url": image_url,
+        }
+
     payload = {
         "board_id": board_id,
         "title": title[:100],
         "description": description[:800],
-        "media_source": {
-            "source_type": "image_url",
-            "url": image_url,
-        },
+        "media_source": media_source,
     }
     if link:
         payload["link"] = link

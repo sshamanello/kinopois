@@ -144,10 +144,11 @@ def sync_pins_to_sheets(
 
     # Batch update existing rows using batch_update (single API call)
     if to_update:
-        col_end = chr(ord("A") + len(SHEET_HEADERS) - 1)
+        import gspread
+
         data = [
             {
-                "range": f"A{row_num}:{col_end}{row_num}",
+                "range": f"{gspread.utils.rowcol_to_a1(row_num, 1)}:{gspread.utils.rowcol_to_a1(row_num, len(SHEET_HEADERS))}",
                 "values": [values],
             }
             for row_num, values in to_update

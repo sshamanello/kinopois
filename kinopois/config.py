@@ -71,6 +71,7 @@ class Config:
     autopilot_download_limit_per_day: int = field(default_factory=lambda: int(os.getenv("AUTOPILOT_DOWNLOAD_LIMIT_PER_DAY", "200")))
     autopilot_posts_per_day: int = field(default_factory=lambda: int(os.getenv("AUTOPILOT_POSTS_PER_DAY", "3")))
     autopilot_publish_attempts_per_slot: int = field(default_factory=lambda: int(os.getenv("AUTOPILOT_PUBLISH_ATTEMPTS_PER_SLOT", "5")))
+    autopilot_enable_publish: bool = field(default_factory=lambda: os.getenv("AUTOPILOT_ENABLE_PUBLISH", "1") == "1")
     autopilot_slot_hours: str = field(default_factory=lambda: os.getenv("AUTOPILOT_SLOT_HOURS", "10,15,20"))
     autopilot_slot_jitter_min: int = field(default_factory=lambda: int(os.getenv("AUTOPILOT_SLOT_JITTER_MIN", "20")))
     autopilot_loop_sleep_sec: int = field(default_factory=lambda: int(os.getenv("AUTOPILOT_LOOP_SLEEP_SEC", "30")))
@@ -129,6 +130,7 @@ class Config:
             autopilot_download_limit_per_day=int(os.getenv("AUTOPILOT_DOWNLOAD_LIMIT_PER_DAY", "200")),
             autopilot_posts_per_day=int(os.getenv("AUTOPILOT_POSTS_PER_DAY", "3")),
             autopilot_publish_attempts_per_slot=int(os.getenv("AUTOPILOT_PUBLISH_ATTEMPTS_PER_SLOT", "5")),
+            autopilot_enable_publish=os.getenv("AUTOPILOT_ENABLE_PUBLISH", "1") == "1",
             autopilot_slot_hours=os.getenv("AUTOPILOT_SLOT_HOURS", "10,15,20"),
             autopilot_slot_jitter_min=int(os.getenv("AUTOPILOT_SLOT_JITTER_MIN", "20")),
             autopilot_loop_sleep_sec=int(os.getenv("AUTOPILOT_LOOP_SLEEP_SEC", "30")),

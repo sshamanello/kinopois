@@ -164,3 +164,14 @@
 - Добавлены env-поля для upload слоя:
   - `PUBLISH_IMAGES_DIR`
   - `PUBLISH_IMAGES_BASE_URL`.
+
+## Изменения 2026-05-11 (producer-only mode for n8n split)
+
+- Добавлен флаг `AUTOPILOT_ENABLE_PUBLISH` (default `1`).
+- При `AUTOPILOT_ENABLE_PUBLISH=0` `kinopois-autopilot` выполняет только producer-часть:
+  - download
+  - process
+  - export
+  - upload images
+  - queue/sheets sync
+- Публикационные слоты Pinterest в этом режиме пропускаются (n8n публикует отдельно).

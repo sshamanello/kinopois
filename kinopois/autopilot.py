@@ -61,6 +61,8 @@ class Autopilot:
             self._save_state(state)
 
         slots = self._day_slots(state)
+        if not config.autopilot_enable_publish:
+            return
         for idx, slot_time in enumerate(slots):
             key = f"slot_{idx}"
             if state.get("posted_slots", {}).get(key):
@@ -79,6 +81,9 @@ class Autopilot:
             self._run_daily_harvest(state)
 
         slots = self._day_slots(state)
+        if not config.autopilot_enable_publish:
+            self._save_state(state)
+            return
         for idx, slot_time in enumerate(slots):
             key = f"slot_{idx}"
             if state.get("posted_slots", {}).get(key):

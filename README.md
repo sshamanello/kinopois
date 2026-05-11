@@ -101,6 +101,9 @@ kinopois autopilot-once
 # - harvest once per day (append mode, up to AUTOPILOT_DOWNLOAD_LIMIT_PER_DAY)
 # - then tries publish slots by AUTOPILOT_SLOT_HOURS
 kinopois autopilot
+
+# Modular base flow (download -> process -> upload -> queue)
+kinopois run-base-pipeline --limit 200
 ```
 
 Autopilot is stateful and keeps `data/cache/autopilot_state.json`.

@@ -14,11 +14,8 @@ import requests
 from rich.console import Console
 
 from kinopois.config import config
-from kinopois.db import get_ready_jobs, mark_failed, mark_posted, sync_pins_csv
-from kinopois.export import export_movie_pins_csv
-from kinopois.pinterest import publish_pin
-from kinopois.processor import load_movies
-from kinopois.scraper import KinopoiskScraper
+from kinopois.db import get_ready_jobs, mark_failed, mark_posted
+from kinopois.pipeline_steps import run_daily_prepare, step_publish_one_job
 
 try:
     from kinopois.sheets import sync_pins_to_sheets
@@ -97,24 +94,7 @@ class Autopilot:
 
         if not config.kinopoisk_api_key:
             raise RuntimeError("KINOPOISK_API_KEY is not configured")
-
-        scraper = KinopoiskScraper(config.kinopoisk_api_key)
-        movies_csv = scraper.download_and_save(
-            output_csv=config.cache_dir / "movies.csv",
-            limit=limit,
-            append_mode=True,
-        )
-
-        processor = load_movies(movies_csv)
-        processor.clean(config.cache_dir / "movies_clean.csv")
-        export_movie_pins_csv(
-            input_csv=config.cache_dir / "movies_clean.csv",
-            output_csv=config.cache_dir / "pins.csv",
-        )
-
-        if config.autopilot_sync_queue:
-            inserted = sync_pins_csv(config.cache_dir / "pins.csv")
-            console.print(f"[green]Queue sync inserted: {inserted}[/green]")
+        run_daily_prepare(limit)
 
         if config.autopilot_sync_sheets:
             self._sync_sheets_safe()
@@ -163,17 +143,16 @@ class Autopilot:
             if proc.returncode != 0:
                 error = (proc.stderr or proc.stdout or "publish command failed").strip()
                 return False, error
-
             pin_id = self._extract_pin_id(proc.stdout)
             if not pin_id:
                 pin_id = f"external-{int(time.time())}"
             return True, pin_id
 
         try:
-            return True, publish_pin(job)
+            pin_id = step_publish_one_job(job)
+            return True, pin_id
         except Exception as exc:
-            error = str(exc).strip() or "direct publish failed"
-            return False, error
+            return False, str(exc).strip() or "direct publish failed"
 
     def _extract_pin_id(self, raw: str) -> str:
         raw = (raw or "").strip()

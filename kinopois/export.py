@@ -210,6 +210,8 @@ _MOVIE_PIN_FIELDNAMES = [
     "year", "rating", "genres", "primary_genre", "kp_url", "source_type",
     "description", "keywords", "category", "board", "board_id",
     "status", "created_at", "posted_at", "notes",
+    "public_image_url", "remote_image_path", "vds_upload_status",
+    "uploaded_at", "publish_status", "published_at", "error_reason",
 ]
 
 
@@ -318,6 +320,13 @@ def export_movie_pins_csv(
             "created_at": now_str,
             "posted_at": "",
             "notes": "",
+            "public_image_url": "",
+            "remote_image_path": "",
+            "vds_upload_status": "pending",
+            "uploaded_at": "",
+            "publish_status": "pending",
+            "published_at": "",
+            "error_reason": "",
         })
 
     write_csv_dict(output_csv, pins, _MOVIE_PIN_FIELDNAMES, config.csv_delimiter, config.csv_encoding)

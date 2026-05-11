@@ -144,3 +144,23 @@
   - встроенный CTA в Telegram-бот (`BOT_URL`),
   - включение жанра / года / рейтинга для поисковой релевантности.
 - Текущая очередь `publish_jobs` (`ready/failed`) переписана вручную на новый SEO-формат description.
+
+## Изменения 2026-05-11 (modular base architecture skeleton)
+
+- Добавлен модуль шагов `kinopois/pipeline_steps.py` с изолированными этапами:
+  - `step_download`
+  - `step_process`
+  - `step_export`
+  - `step_upload_to_server`
+  - `step_queue_sync`
+  - `step_publish`
+- Добавлен агрегирующий сценарий `run_daily_prepare(limit)` для базового контура.
+- В `autopilot` ежедневная подготовка переведена на модульный раннер шагов.
+- Добавлена CLI-команда:
+  - `kinopois run-base-pipeline --limit 200 [--publish N]`
+- Расширен CSV/Sheets контракт для интеграции с n8n полями:
+  - `public_image_url`, `remote_image_path`, `vds_upload_status`,
+  - `uploaded_at`, `publish_status`, `published_at`, `error_reason`.
+- Добавлены env-поля для upload слоя:
+  - `PUBLISH_IMAGES_DIR`
+  - `PUBLISH_IMAGES_BASE_URL`.

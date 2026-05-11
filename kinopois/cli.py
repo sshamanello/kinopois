@@ -38,6 +38,7 @@ from kinopois.db import (
     db_counts,
 )
 from kinopois.marker import mark_posters, PosterMarker
+from kinopois.pipeline_steps import run_daily_prepare, step_publish
 from kinopois.processor import load_clean_movies, load_movies
 from kinopois.scraper import KinopoiskScraper
 
@@ -832,6 +833,18 @@ def autopilot_once_cmd():
 def autopilot_daemon_cmd():
     """Run autonomous scheduler forever."""
     Autopilot().run_forever()
+
+
+@main.command("run-base-pipeline")
+@click.option("--limit", default=200, type=int, help="Download limit for this run")
+@click.option("--publish", default=0, type=int, help="Publish N ready jobs after prepare")
+def run_base_pipeline_cmd(limit, publish):
+    """Run base modular pipeline: download -> process -> upload -> queue."""
+    stats = run_daily_prepare(max(1, int(limit)))
+    print_success(f"Prepare complete: {stats}")
+    if publish > 0:
+        pub = step_publish(limit=publish)
+        print_success(f"Publish complete: {pub}")
 
 
 if __name__ == "__main__":

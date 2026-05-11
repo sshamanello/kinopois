@@ -17,6 +17,8 @@ SHEET_HEADERS = [
     "year", "rating", "genres", "primary_genre", "kp_url", "source_type",
     "description", "keywords", "category", "board", "board_id",
     "status", "created_at", "posted_at", "notes",
+    "public_image_url", "remote_image_path", "vds_upload_status",
+    "uploaded_at", "publish_status", "published_at", "error_reason",
 ]
 
 

@@ -50,6 +50,8 @@ class Config:
     use_framed_posters: bool = field(default_factory=lambda: os.getenv("USE_FRAMED_POSTERS", "1") == "1")
     framed_refresh_source: bool = field(default_factory=lambda: os.getenv("FRAMED_REFRESH_SOURCE", "1") == "1")
     framed_force_regenerate: bool = field(default_factory=lambda: os.getenv("FRAMED_FORCE_REGENERATE", "1") == "1")
+    publish_images_dir: Path = field(default_factory=lambda: Path(os.getenv("PUBLISH_IMAGES_DIR", "data/publish/ready")))
+    publish_images_base_url: str = field(default_factory=lambda: os.getenv("PUBLISH_IMAGES_BASE_URL", "http://87.120.219.4/pins/ready"))
 
     # Google Sheets integration
     google_creds_file: str = field(default_factory=lambda: os.getenv("GOOGLE_CREDS_FILE", ""))
@@ -88,8 +90,10 @@ class Config:
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.framed_source_posters_dir.mkdir(parents=True, exist_ok=True)
         self.framed_posters_dir.mkdir(parents=True, exist_ok=True)
+        self.publish_images_dir.mkdir(parents=True, exist_ok=True)
         self.posters_base_url = self.posters_base_url.rstrip("/")
         self.framed_posters_base_url = self.framed_posters_base_url.rstrip("/")
+        self.publish_images_base_url = self.publish_images_base_url.rstrip("/")
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -114,6 +118,8 @@ class Config:
             use_framed_posters=os.getenv("USE_FRAMED_POSTERS", "1") == "1",
             framed_refresh_source=os.getenv("FRAMED_REFRESH_SOURCE", "1") == "1",
             framed_force_regenerate=os.getenv("FRAMED_FORCE_REGENERATE", "1") == "1",
+            publish_images_dir=Path(os.getenv("PUBLISH_IMAGES_DIR", "data/publish/ready")),
+            publish_images_base_url=os.getenv("PUBLISH_IMAGES_BASE_URL", "http://87.120.219.4/pins/ready"),
             google_creds_file=os.getenv("GOOGLE_CREDS_FILE", ""),
             google_sheets_id=os.getenv("GOOGLE_SHEETS_ID", ""),
             google_sheets_tab=os.getenv("GOOGLE_SHEETS_TAB", "pins"),

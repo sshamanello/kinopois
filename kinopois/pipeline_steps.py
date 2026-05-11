@@ -65,7 +65,9 @@ def step_upload_to_server(pins_csv: Path) -> Dict[str, int]:
         row["remote_image_path"] = str(dst)
         row["vds_upload_status"] = "uploaded"
         row["uploaded_at"] = now_str
-        row["publish_status"] = row.get("publish_status") or "ready"
+        current_publish_status = str(row.get("publish_status", "")).strip().lower()
+        if current_publish_status in {"", "pending", "failed"}:
+            row["publish_status"] = "ready"
         row["error_reason"] = ""
         uploaded += 1
 

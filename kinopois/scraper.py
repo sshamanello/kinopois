@@ -1,6 +1,7 @@
 """Scraper for Kinopoisk API."""
 
 import csv
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -61,19 +62,27 @@ class KinopoiskScraper:
             ],
         }
 
-        try:
-            response = requests.get(
-                self.API_URL,
-                headers=self.headers,
-                params=params,
-                timeout=20,
-            )
-            response.raise_for_status()
-            data = response.json()
-            return data.get("docs", []), data.get("pages", 1)
-        except requests.RequestException as e:
-            console.print(f"[red]Error fetching movies: {e}[/red]")
-            return [], 0
+        last_error: Optional[Exception] = None
+        for attempt in range(1, 4):
+            try:
+                response = requests.get(
+                    self.API_URL,
+                    headers=self.headers,
+                    params=params,
+                    timeout=20,
+                )
+                response.raise_for_status()
+                data = response.json()
+                return data.get("docs", []), data.get("pages", 1)
+            except requests.RequestException as e:
+                last_error = e
+                if attempt < 3:
+                    time.sleep(2 * attempt)
+                    continue
+                break
+
+        console.print(f"[red]Error fetching movies: {last_error}[/red]")
+        return [], 0
 
     def download_poster(self, url: str, filename: str) -> Optional[Path]:
         """Download poster image to posters directory.
@@ -163,6 +172,10 @@ class KinopoiskScraper:
         ]
 
         mode = "a" if append_mode and output_csv.exists() else "w"
+        backup_rows: List[Dict[str, Any]] = []
+        if mode == "w" and output_csv.exists():
+            backup_rows = read_csv_dict(output_csv, config.csv_delimiter, config.csv_encoding)
+
         with open(output_csv, mode, newline="", encoding=config.csv_encoding) as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames, delimiter=config.csv_delimiter)
             if mode == "w":
@@ -219,6 +232,16 @@ class KinopoiskScraper:
                 page += 1
                 if page > total_pages:
                     break
+
+        if mode == "w" and collected == 0 and backup_rows:
+            with open(output_csv, "w", newline="", encoding=config.csv_encoding) as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames, delimiter=config.csv_delimiter)
+                writer.writeheader()
+                for row in backup_rows:
+                    writer.writerow({k: row.get(k, "") for k in fieldnames})
+            console.print(
+                "[yellow]No new movies fetched; restored previous movies.csv snapshot[/yellow]"
+            )
 
         console.print(f"[green]Downloaded {collected} movies to {output_csv}[/green]")
         return output_csv

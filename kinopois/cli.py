@@ -43,6 +43,7 @@ from kinopois.processor import load_clean_movies, load_movies
 from kinopois.scraper import KinopoiskScraper
 
 try:
+    from kinopois.sheets import normalize_sheet_statuses as _normalize_sheet_statuses
     from kinopois.sheets import sync_pins_to_sheets as _sync_sheets
 
     _SHEETS_AVAILABLE = True
@@ -802,6 +803,25 @@ def sync_sheets_cmd(csv_path, force_update):
         raise click.Abort()
     except Exception as e:
         print_error(f"Sheets sync failed: {e}")
+        raise click.Abort()
+
+
+@main.command("reconcile-sheet-statuses")
+def reconcile_sheet_statuses_cmd():
+    """Normalize broken/empty status values in Google Sheets."""
+    if not _SHEETS_AVAILABLE:
+        print_error(
+            "Google Sheets integration not available", "Run: pip install gspread google-auth"
+        )
+        raise click.Abort()
+    try:
+        stats = _normalize_sheet_statuses()
+        print_success(
+            "Reconcile complete: "
+            f"updated={stats['updated']} posted={stats['to_posted']} pending={stats['to_pending']}"
+        )
+    except Exception as e:
+        print_error(f"Reconcile failed: {e}")
         raise click.Abort()
 
 

@@ -167,3 +167,50 @@ def sync_pins_to_sheets(
         f"{stats['skipped']} skipped (total {stats['total']})"
     )
     return stats
+
+
+def normalize_sheet_statuses() -> Dict[str, int]:
+    """Normalize status column values in sheet without touching explicit states."""
+    gc = _get_client()
+    ws = _get_worksheet(gc)
+    _ensure_header(ws)
+
+    rows = ws.get_all_values()
+    if len(rows) <= 1:
+        return {"total": 0, "updated": 0, "to_posted": 0, "to_pending": 0}
+
+    header = rows[0]
+    status_idx = header.index("status")
+    posted_at_idx = header.index("posted_at")
+
+    valid = {"pending", "posted", "failed"}
+    updates = []
+    stats = {"total": len(rows) - 1, "updated": 0, "to_posted": 0, "to_pending": 0}
+
+    for rnum, row in enumerate(rows[1:], start=2):
+        status = (row[status_idx] if status_idx < len(row) else "").strip().lower()
+        posted_at = (row[posted_at_idx] if posted_at_idx < len(row) else "").strip()
+
+        new_status = None
+        if not status:
+            new_status = "posted" if posted_at else "pending"
+        elif status not in valid:
+            new_status = "pending"
+
+        if new_status and new_status != status:
+            updates.append(
+                {
+                    "range": f"{chr(ord('A') + status_idx)}{rnum}",
+                    "values": [[new_status]],
+                }
+            )
+            stats["updated"] += 1
+            if new_status == "posted":
+                stats["to_posted"] += 1
+            else:
+                stats["to_pending"] += 1
+
+    if updates:
+        ws.batch_update(updates, value_input_option="USER_ENTERED")
+
+    return stats

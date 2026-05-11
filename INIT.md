@@ -175,3 +175,17 @@
   - upload images
   - queue/sheets sync
 - Публикационные слоты Pinterest в этом режиме пропускаются (n8n публикует отдельно).
+
+## Изменения 2026-05-11 (n8n status reconcile hardening)
+
+- Подтвержден критичный источник рассинхрона статусов: в одном workflow-файле n8n
+  нода `Update row - failed` матчила строку по `status`, а не по `id`.
+- Добавлена функция `normalize_sheet_statuses()` в `kinopois/sheets.py`.
+- Добавлена CLI-команда:
+  - `kinopois reconcile-sheet-statuses`
+  - исправляет пустые/невалидные статусы в Google Sheets:
+    - `posted_at` заполнен -> `status=posted`
+    - `posted_at` пуст и status пуст/битый -> `status=pending`
+- Добавлен скрипт `scripts/reconcile_sheet_statuses.py` с такой же логикой
+  для одноразового ручного запуска.
+- README дополнен новой командой обслуживания таблицы.

@@ -89,6 +89,9 @@ kinopois export-movie-pins
 
 # Push existing pins.csv to Google Sheets
 kinopois sync
+
+# Normalize sheet statuses (fix empty/invalid status values)
+kinopois reconcile-sheet-statuses
 ```
 
 ### Autonomous server mode
@@ -217,6 +220,7 @@ board; board_id; status; created_at; posted_at; notes
 | `kinopois pins` | Full pin pipeline (download + process + export + optional sync) |
 | `kinopois export-movie-pins` | Re-export pins.csv from existing data |
 | `kinopois sync` | Push pins.csv to Google Sheets |
+| `kinopois reconcile-sheet-statuses` | Normalize empty/invalid `status` in Google Sheets |
 | `kinopois autopilot-once` | Run one autonomous tick (harvest + due slots) |
 | `kinopois autopilot` | Run autonomous daemon forever |
 | `kinopois run-prod` | Full collage pipeline |

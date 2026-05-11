@@ -54,6 +54,12 @@ class Config:
     publish_images_base_url: str = field(default_factory=lambda: os.getenv("PUBLISH_IMAGES_BASE_URL", "http://87.120.219.4/pins/ready"))
     publish_images_cleanup_enabled: bool = field(default_factory=lambda: os.getenv("PUBLISH_IMAGES_CLEANUP_ENABLED", "1") == "1")
     publish_images_retention_days: int = field(default_factory=lambda: int(os.getenv("PUBLISH_IMAGES_RETENTION_DAYS", "21")))
+    publish_remote_sync_enabled: bool = field(default_factory=lambda: os.getenv("PUBLISH_REMOTE_SYNC_ENABLED", "0") == "1")
+    publish_remote_host: str = field(default_factory=lambda: os.getenv("PUBLISH_REMOTE_HOST", ""))
+    publish_remote_user: str = field(default_factory=lambda: os.getenv("PUBLISH_REMOTE_USER", "root"))
+    publish_remote_dir: str = field(default_factory=lambda: os.getenv("PUBLISH_REMOTE_DIR", "/var/www/html/pins/ready"))
+    publish_remote_connect_timeout_sec: int = field(default_factory=lambda: int(os.getenv("PUBLISH_REMOTE_CONNECT_TIMEOUT_SEC", "8")))
+    publish_remote_cmd_timeout_sec: int = field(default_factory=lambda: int(os.getenv("PUBLISH_REMOTE_CMD_TIMEOUT_SEC", "25")))
 
     # Google Sheets integration
     google_creds_file: str = field(default_factory=lambda: os.getenv("GOOGLE_CREDS_FILE", ""))
@@ -125,6 +131,12 @@ class Config:
             publish_images_base_url=os.getenv("PUBLISH_IMAGES_BASE_URL", "http://87.120.219.4/pins/ready"),
             publish_images_cleanup_enabled=os.getenv("PUBLISH_IMAGES_CLEANUP_ENABLED", "1") == "1",
             publish_images_retention_days=int(os.getenv("PUBLISH_IMAGES_RETENTION_DAYS", "21")),
+            publish_remote_sync_enabled=os.getenv("PUBLISH_REMOTE_SYNC_ENABLED", "0") == "1",
+            publish_remote_host=os.getenv("PUBLISH_REMOTE_HOST", ""),
+            publish_remote_user=os.getenv("PUBLISH_REMOTE_USER", "root"),
+            publish_remote_dir=os.getenv("PUBLISH_REMOTE_DIR", "/var/www/html/pins/ready"),
+            publish_remote_connect_timeout_sec=int(os.getenv("PUBLISH_REMOTE_CONNECT_TIMEOUT_SEC", "8")),
+            publish_remote_cmd_timeout_sec=int(os.getenv("PUBLISH_REMOTE_CMD_TIMEOUT_SEC", "25")),
             google_creds_file=os.getenv("GOOGLE_CREDS_FILE", ""),
             google_sheets_id=os.getenv("GOOGLE_SHEETS_ID", ""),
             google_sheets_tab=os.getenv("GOOGLE_SHEETS_TAB", "pins"),

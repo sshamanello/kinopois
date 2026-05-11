@@ -236,3 +236,16 @@
 - Добавлена CLI-команда:
   - `kinopois backfill-assets --limit 200`
   - выполняет prepare + selective upload-fields sync в таблицу.
+
+## Изменения 2026-05-11 (stable auto-copy after processing)
+
+- Исправлена нестабильность remote-copy в `step_upload_to_server()`:
+  - добавлен `BatchMode=yes` для `scp`, чтобы процесс не зависал на запросе пароля;
+  - добавлен `ConnectTimeout` и общий `timeout` выполнения команды;
+  - ошибки remote-copy теперь возвращаются как явные `upload_failed` причины в `error_reason`.
+- Добавлены новые env-настройки:
+  - `PUBLISH_REMOTE_CONNECT_TIMEOUT_SEC` (default `8`)
+  - `PUBLISH_REMOTE_CMD_TIMEOUT_SEC` (default `25`)
+- Усилен remote cleanup (`ssh find ... -delete`):
+  - та же fail-fast SSH-конфигурация (`BatchMode`, `ConnectTimeout`, `timeout`);
+  - безопасная обработка исключений без падения daily-пайплайна.

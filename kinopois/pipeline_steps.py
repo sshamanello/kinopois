@@ -22,6 +22,35 @@ from kinopois.utils import read_csv_dict, write_csv_dict
 console = Console()
 
 
+def _remote_target_for_id(kp_id: str) -> str:
+    return f"{config.publish_remote_user}@{config.publish_remote_host}:{config.publish_remote_dir.rstrip('/')}/{kp_id}.jpg"
+
+
+def _scp_to_remote(local_path: Path, kp_id: str) -> tuple[bool, str]:
+    remote = _remote_target_for_id(kp_id)
+    ssh_opts = [
+        "-o", "BatchMode=yes",
+        "-o", "StrictHostKeyChecking=no",
+        "-o", f"ConnectTimeout={max(1, int(config.publish_remote_connect_timeout_sec))}",
+    ]
+    try:
+        proc = subprocess.run(
+            ["scp", *ssh_opts, str(local_path), remote],
+            capture_output=True,
+            text=True,
+            timeout=max(3, int(config.publish_remote_cmd_timeout_sec)),
+        )
+    except subprocess.TimeoutExpired:
+        return False, "remote_scp_timeout"
+    except Exception as exc:
+        return False, f"remote_scp_error:{exc}"
+
+    if proc.returncode != 0:
+        err = (proc.stderr or proc.stdout or "remote_scp_failed").strip()
+        return False, err
+    return True, ""
+
+
 def step_download(limit: int) -> Path:
     scraper = KinopoiskScraper(config.kinopoisk_api_key)
     return scraper.download_and_save(output_csv=config.cache_dir / "movies.csv", limit=limit, append_mode=True)
@@ -79,15 +108,10 @@ def step_upload_to_server(pins_csv: Path) -> Dict[str, int]:
         shutil.copy2(src, dst)
 
         if config.publish_remote_sync_enabled and config.publish_remote_host:
-            remote = f"{config.publish_remote_user}@{config.publish_remote_host}:{config.publish_remote_dir.rstrip('/')}/{kp_id}.jpg"
-            proc = subprocess.run(
-                ["scp", "-o", "StrictHostKeyChecking=no", str(dst), remote],
-                capture_output=True,
-                text=True,
-            )
-            if proc.returncode != 0:
+            ok, err = _scp_to_remote(dst, kp_id)
+            if not ok:
                 row["vds_upload_status"] = "upload_failed"
-                row["error_reason"] = (proc.stderr or proc.stdout or "remote_scp_failed").strip()[:500]
+                row["error_reason"] = err[:500]
                 failed += 1
                 continue
 
@@ -135,16 +159,27 @@ def step_cleanup_publish_dir() -> Dict[str, int]:
             f"find {config.publish_remote_dir.rstrip('/')} -type f -name '*.jpg' "
             f"-mtime +{max(1, int(config.publish_images_retention_days))} -delete -print | wc -l"
         )
-        proc = subprocess.run(
-            ["ssh", "-o", "StrictHostKeyChecking=no", f"{config.publish_remote_user}@{config.publish_remote_host}", cmd],
-            capture_output=True,
-            text=True,
-        )
-        if proc.returncode == 0:
-            try:
-                remote_deleted = int((proc.stdout or "0").strip().splitlines()[-1])
-            except Exception:
-                remote_deleted = 0
+        try:
+            proc = subprocess.run(
+                [
+                    "ssh",
+                    "-o", "BatchMode=yes",
+                    "-o", "StrictHostKeyChecking=no",
+                    "-o", f"ConnectTimeout={max(1, int(config.publish_remote_connect_timeout_sec))}",
+                    f"{config.publish_remote_user}@{config.publish_remote_host}",
+                    cmd,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=max(3, int(config.publish_remote_cmd_timeout_sec)),
+            )
+            if proc.returncode == 0:
+                try:
+                    remote_deleted = int((proc.stdout or "0").strip().splitlines()[-1])
+                except Exception:
+                    remote_deleted = 0
+        except Exception:
+            remote_deleted = 0
 
     return {"deleted": deleted, "kept": kept, "scanned": scanned, "remote_deleted": remote_deleted}
 

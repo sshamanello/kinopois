@@ -259,3 +259,14 @@
 - Добавлены env-параметры:
   - `KINOPOISK_API_URL` (default `https://api.poiskkino.dev/v1.4/movie`)
   - `KINOPOISK_RESOLVE_IPS` (comma-separated список IP для fallback).
+
+## Изменения 2026-05-12 (strict new-only download, no duplicates)
+
+- Команда `kinopois download` переведена в append-only режим по умолчанию:
+  - новые записи дописываются в `movies.csv`,
+  - существующие `kp_id` всегда пропускаются.
+- Добавлен явный флаг `--replace` для ручного полного пересоздания `movies.csv`
+  (по умолчанию не используется в проде).
+- Проверка на сервере двумя подряд запусками `download --limit 10`:
+  - после 1-го запуска: `20 total / 20 unique / 0 dup`,
+  - после 2-го запуска: `30 total / 30 unique / 0 dup`.

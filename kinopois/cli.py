@@ -136,12 +136,18 @@ def main(ctx, api_key, data_dir):
     type=click.Path(path_type=Path),
     help="Save movies to file (default: data/cache/movies.csv)",
 )
+@click.option(
+    "--replace",
+    is_flag=True,
+    help="Replace output CSV instead of append-only mode (not recommended for prod)",
+)
 @click.pass_context
-def download(ctx, limit, output):
+def download(ctx, limit, output, replace):
     """Download movie posters from Kinopoisk.
 
     Downloads movie posters and metadata from Kinopoisk.dev API.
-    Movies are saved to a CSV file for further processing.
+    By default works in append-only mode and skips existing kp_id values.
+    Use --replace only when you intentionally want to rebuild movies.csv.
 
     Example:
 
@@ -157,7 +163,7 @@ def download(ctx, limit, output):
     console.print(f"[cyan]Downloading {limit} movies from Kinopoisk...[/cyan]")
 
     scraper = KinopoiskScraper(config.kinopoisk_api_key)
-    output_path = scraper.download_and_save(output_csv=output, limit=limit)
+    output_path = scraper.download_and_save(output_csv=output, limit=limit, append_mode=not replace)
 
     print_success(f"Downloaded to {output_path}")
 

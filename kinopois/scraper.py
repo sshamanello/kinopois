@@ -40,6 +40,13 @@ class KinopoiskScraper:
             "accept": "application/json",
         }
 
+    def _effective_page_limit(self, requested_limit: int) -> int:
+        """Clamp per-page limit for poiskkino demo/free constraints."""
+        host = (urlsplit(self.api_url).hostname or "").lower()
+        if "poiskkino.dev" in host:
+            return max(1, min(10, int(requested_limit)))
+        return max(1, int(requested_limit))
+
     def _fetch_movies_via_resolve(self, params: Dict[str, Any]) -> tuple[List[Dict[str, Any]], int]:
         """Fallback request path that mirrors curl --resolve for TLS/DNS issues."""
         if not self.resolve_ips:
@@ -189,7 +196,7 @@ class KinopoiskScraper:
         self,
         output_csv: Optional[Path] = None,
         limit: int = 200,
-        append_mode: bool = False,
+        append_mode: bool = True,
     ) -> Path:
         """Download movies with posters and save to CSV.
 
@@ -232,9 +239,14 @@ class KinopoiskScraper:
                 writer.writeheader()
 
             while collected < limit:
+                per_page = self._effective_page_limit(config.page_size)
+                if per_page != int(config.page_size):
+                    console.print(
+                        f"[yellow]Poiskkino per-page limit forced to {per_page} (demo/free constraint)[/yellow]"
+                    )
                 movies, total_pages = self.fetch_movies(
                     page=page,
-                    limit=config.page_size,
+                    limit=per_page,
                     rating_min=config.rating_min,
                     rating_max=config.rating_max,
                     year_min=config.year_min,
@@ -257,7 +269,7 @@ class KinopoiskScraper:
 
                     if not kp_id:
                         continue
-                    if append_mode and kp_id in existing_ids:
+                    if kp_id in existing_ids:
                         continue
 
                     # Skip if no poster
@@ -273,8 +285,7 @@ class KinopoiskScraper:
 
                     data["poster_file"] = str(poster_path)
                     writer.writerow(data)
-                    if append_mode:
-                        existing_ids.add(kp_id)
+                    existing_ids.add(kp_id)
 
                     collected += 1
                     console.print(f"[green][{collected}/{limit}][/green] {data['title']} ({data['year']})")

@@ -16,6 +16,8 @@ class Config:
 
     # API
     kinopoisk_api_key: str = field(default_factory=lambda: os.getenv("KINOPOISK_API_KEY", ""))
+    kinopoisk_api_url: str = field(default_factory=lambda: os.getenv("KINOPOISK_API_URL", "https://api.poiskkino.dev/v1.4/movie"))
+    kinopoisk_resolve_ips: str = field(default_factory=lambda: os.getenv("KINOPOISK_RESOLVE_IPS", ""))
 
     # Directories
     data_dir: Path = field(default_factory=lambda: Path(os.getenv("DATA_DIR", "data")))
@@ -109,6 +111,8 @@ class Config:
         """Create config from environment variables."""
         return cls(
             kinopoisk_api_key=os.getenv("KINOPOISK_API_KEY", ""),
+            kinopoisk_api_url=os.getenv("KINOPOISK_API_URL", "https://api.poiskkino.dev/v1.4/movie"),
+            kinopoisk_resolve_ips=os.getenv("KINOPOISK_RESOLVE_IPS", ""),
             data_dir=Path(os.getenv("DATA_DIR", "data")),
             posters_dir=Path(os.getenv("POSTERS_DIR", "data/posters")),
             framed_source_posters_dir=Path(os.getenv("FRAMED_SOURCE_POSTERS_DIR", "data/posters_clean")),

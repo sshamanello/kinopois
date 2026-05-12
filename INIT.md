@@ -249,3 +249,13 @@
 - Усилен remote cleanup (`ssh find ... -delete`):
   - та же fail-fast SSH-конфигурация (`BatchMode`, `ConnectTimeout`, `timeout`);
   - безопасная обработка исключений без падения daily-пайплайна.
+
+## Изменения 2026-05-12 (poiskkino TLS fallback via --resolve)
+
+- Для `download` добавлен fallback на `curl --resolve` при сетевых/TLS ошибках
+  к `api.poiskkino.dev`:
+  - сначала идёт обычный `requests.get`,
+  - если он падает, пробуются IP из `KINOPOISK_RESOLVE_IPS`.
+- Добавлены env-параметры:
+  - `KINOPOISK_API_URL` (default `https://api.poiskkino.dev/v1.4/movie`)
+  - `KINOPOISK_RESOLVE_IPS` (comma-separated список IP для fallback).

@@ -1,9 +1,12 @@
 """Scraper for Kinopoisk API."""
 
 import csv
+import json
+import subprocess
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlencode, urlsplit
 
 import requests
 from rich.console import Console
@@ -18,18 +21,60 @@ console = Console()
 class KinopoiskScraper:
     """Scraper for Kinopoisk.dev API."""
 
-    API_URL = "https://api.kinopoisk.dev/v1.4/movie"
+    API_URL = "https://api.poiskkino.dev/v1.4/movie"
 
     def __init__(self, api_key: Optional[str] = None):
         """Initialize scraper with API key."""
         self.api_key = api_key or config.kinopoisk_api_key
         if not self.api_key:
             raise ValueError("Kinopoisk API key is required. Set KINOPOISK_API_KEY env var.")
+        self.api_url = (config.kinopoisk_api_url or self.API_URL).strip()
+        self.resolve_ips = [
+            ip.strip()
+            for ip in (config.kinopoisk_resolve_ips or "").split(",")
+            if ip.strip()
+        ]
 
         self.headers = {
             "X-API-KEY": self.api_key,
             "accept": "application/json",
         }
+
+    def _fetch_movies_via_resolve(self, params: Dict[str, Any]) -> tuple[List[Dict[str, Any]], int]:
+        """Fallback request path that mirrors curl --resolve for TLS/DNS issues."""
+        if not self.resolve_ips:
+            return [], 0
+
+        parsed = urlsplit(self.api_url)
+        host = parsed.hostname or "api.poiskkino.dev"
+        query = urlencode(params, doseq=True)
+        full_url = f"{self.api_url}?{query}"
+
+        for ip in self.resolve_ips:
+            cmd = [
+                "curl",
+                "-sS",
+                "--fail",
+                "--max-time",
+                "25",
+                "--resolve",
+                f"{host}:443:{ip}",
+                "-H",
+                f"X-API-KEY: {self.api_key}",
+                "-H",
+                "accept: application/json",
+                full_url,
+            ]
+            proc = subprocess.run(cmd, capture_output=True, text=True)
+            if proc.returncode != 0:
+                continue
+            try:
+                data = json.loads(proc.stdout or "{}")
+            except json.JSONDecodeError:
+                continue
+            return data.get("docs", []), data.get("pages", 1)
+
+        return [], 0
 
     def fetch_movies(
         self,
@@ -66,7 +111,7 @@ class KinopoiskScraper:
         for attempt in range(1, 4):
             try:
                 response = requests.get(
-                    self.API_URL,
+                    self.api_url,
                     headers=self.headers,
                     params=params,
                     timeout=20,
@@ -76,6 +121,11 @@ class KinopoiskScraper:
                 return data.get("docs", []), data.get("pages", 1)
             except requests.RequestException as e:
                 last_error = e
+                # Network/TLS errors: attempt curl --resolve fallback with configured IP pool.
+                fallback_docs, fallback_pages = self._fetch_movies_via_resolve(params)
+                if fallback_docs:
+                    console.print("[yellow]Primary API request failed, used --resolve fallback[/yellow]")
+                    return fallback_docs, fallback_pages
                 if attempt < 3:
                     time.sleep(2 * attempt)
                     continue

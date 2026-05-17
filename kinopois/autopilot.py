@@ -15,6 +15,7 @@ from rich.console import Console
 
 from kinopois.config import config
 from kinopois.db import get_ready_jobs, mark_failed, mark_posted
+from kinopois.eventlog import log_event
 from kinopois.pipeline_steps import run_daily_prepare, step_publish_one_job
 
 try:
@@ -37,13 +38,17 @@ class Autopilot:
 
     def run_forever(self) -> None:
         console.print("[bold cyan]Autopilot started[/bold cyan]")
+        log_event("autopilot_started")
         self._notify("Autopilot started")
         while True:
             try:
+                log_event("autopilot_tick_started")
                 self.run_tick()
+                log_event("autopilot_tick_completed")
             except Exception as exc:
                 msg = f"Autopilot tick failed: {exc}"
                 console.print(f"[red]{msg}[/red]")
+                log_event("autopilot_tick_failed", error=str(exc))
                 self._notify(msg)
             time.sleep(self.sleep_sec)
 
@@ -96,6 +101,7 @@ class Autopilot:
     def _run_daily_harvest(self, state: Dict[str, Any]) -> None:
         limit = max(1, config.autopilot_download_limit_per_day)
         console.print(f"[cyan]Daily harvest started (limit={limit})[/cyan]")
+        log_event("autopilot_harvest_started", limit=limit)
 
         if not config.kinopoisk_api_key:
             raise RuntimeError("KINOPOISK_API_KEY is not configured")
@@ -107,6 +113,7 @@ class Autopilot:
         state["harvest_done"] = True
         msg = "Daily harvest complete"
         console.print(f"[green]{msg}[/green]")
+        log_event("autopilot_harvest_completed")
         self._notify(msg)
 
     def _run_post_slot(self, state: Dict[str, Any], slot_key: str) -> None:
@@ -114,6 +121,7 @@ class Autopilot:
         ready_jobs = get_ready_jobs(limit=attempts)
         if not ready_jobs:
             console.print("[yellow]No ready publish jobs for slot[/yellow]")
+            log_event("autopilot_slot_no_jobs", slot=slot_key)
             state.setdefault("posted_slots", {})[slot_key] = "no_jobs"
             return
 
@@ -125,10 +133,12 @@ class Autopilot:
                 state.setdefault("posted_slots", {})[slot_key] = "posted"
                 state["posted_count"] = int(state.get("posted_count", 0)) + 1
                 console.print(f"[green]Posted job {job['id']} (pin_id={pin_id})[/green]")
+                log_event("autopilot_slot_posted", slot=slot_key, job_id=job["id"], pin_id=pin_id)
                 return
 
             error = result
             mark_failed(job["id"], error[:1500])
+            log_event("autopilot_slot_job_failed", slot=slot_key, job_id=job["id"], error=error[:400])
             self._notify(f"Publish failed for job={job['id']}: {error[:180]}")
 
         state.setdefault("posted_slots", {})[slot_key] = "failed_all"

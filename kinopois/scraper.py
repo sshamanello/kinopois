@@ -14,6 +14,7 @@ from rich.console import Console
 from rich.progress import track
 
 from kinopois.config import config
+from kinopois.eventlog import log_event
 from kinopois.utils import read_csv_dict
 
 console = Console()
@@ -130,6 +131,12 @@ class KinopoiskScraper:
                 fallback_docs, fallback_pages = self._fetch_movies_via_resolve(params)
                 if fallback_docs:
                     console.print("[yellow]Primary API request failed, used --resolve fallback[/yellow]")
+                    log_event(
+                        "fetch_movies_fallback_resolve",
+                        page=page,
+                        limit=limit,
+                        docs=len(fallback_docs),
+                    )
                     return fallback_docs, fallback_pages
                 if attempt < 3:
                     time.sleep(2 * attempt)
@@ -137,6 +144,7 @@ class KinopoiskScraper:
                 break
 
         console.print(f"[red]Error fetching movies: {last_error}[/red]")
+        log_event("fetch_movies_failed", page=page, limit=limit, error=str(last_error))
         return [], 0
 
     def download_poster(self, url: str, filename: str) -> Optional[Path]:
@@ -160,6 +168,7 @@ class KinopoiskScraper:
                     time.sleep(attempt)
                     continue
                 console.print(f"[red]Error downloading poster from {url}: {e}[/red]")
+                log_event("poster_download_failed", url=url, filename=filename, error=str(e))
                 return None
         return None
 
@@ -208,6 +217,12 @@ class KinopoiskScraper:
         """
         if output_csv is None:
             output_csv = config.cache_dir / "movies.csv"
+        log_event(
+            "download_and_save_started",
+            output_csv=str(output_csv),
+            limit=limit,
+            append_mode=append_mode,
+        )
 
         collected = 0
         page = 1
@@ -313,4 +328,5 @@ class KinopoiskScraper:
             )
 
         console.print(f"[green]Downloaded {collected} movies to {output_csv}[/green]")
+        log_event("download_and_save_completed", output_csv=str(output_csv), collected=collected, limit=limit)
         return output_csv

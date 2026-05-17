@@ -312,3 +312,14 @@
     `data/publish/ready` пропускаются;
   - не гоняет каждый раз весь массив загруженных изображений заново;
   - добавлено поле статистики `skipped`.
+
+## Изменения 2026-05-17 (detailed structured logging)
+
+- Добавлен модуль `kinopois/eventlog.py` с JSONL-логом событий.
+- Файл логов: `data/logs/events.log`.
+- Логируются ключевые этапы:
+  - `run_daily_prepare_*`, `step_download_*`, `step_process_*`,
+    `step_export_*`, `step_upload_*`, `step_cleanup_*`, `step_queue_sync_*`;
+  - `autopilot_*` события тиков, harvest и публикационных слотов;
+  - сетевые ошибки `fetch_movies_failed`, `poster_download_failed`,
+    а также fallback `fetch_movies_fallback_resolve`.

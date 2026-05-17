@@ -13,6 +13,7 @@ from rich.console import Console
 
 from kinopois.config import config
 from kinopois.db import get_ready_jobs, mark_failed, mark_posted, sync_pins_csv
+from kinopois.eventlog import log_event
 from kinopois.export import export_movie_pins_csv
 from kinopois.pinterest import publish_pin
 from kinopois.processor import load_movies
@@ -52,20 +53,30 @@ def _scp_to_remote(local_path: Path, kp_id: str) -> tuple[bool, str]:
 
 
 def step_download(limit: int) -> Path:
+    log_event("step_download_started", limit=limit)
     scraper = KinopoiskScraper(config.kinopoisk_api_key)
-    return scraper.download_and_save(output_csv=config.cache_dir / "movies.csv", limit=limit, append_mode=True)
+    out = scraper.download_and_save(output_csv=config.cache_dir / "movies.csv", limit=limit, append_mode=True)
+    log_event("step_download_completed", output_csv=str(out))
+    return out
 
 
 def step_process(input_csv: Path) -> Path:
+    log_event("step_process_started", input_csv=str(input_csv))
     processor = load_movies(input_csv)
-    return processor.clean(config.cache_dir / "movies_clean.csv")
+    out = processor.clean(config.cache_dir / "movies_clean.csv")
+    log_event("step_process_completed", output_csv=str(out))
+    return out
 
 
 def step_export(clean_csv: Path) -> Path:
-    return export_movie_pins_csv(input_csv=clean_csv, output_csv=config.cache_dir / "pins.csv")
+    log_event("step_export_started", input_csv=str(clean_csv))
+    out = export_movie_pins_csv(input_csv=clean_csv, output_csv=config.cache_dir / "pins.csv")
+    log_event("step_export_completed", output_csv=str(out))
+    return out
 
 
 def step_upload_to_server(pins_csv: Path) -> Dict[str, int]:
+    log_event("step_upload_started", pins_csv=str(pins_csv))
     rows = read_csv_dict(pins_csv, config.csv_delimiter, config.csv_encoding)
     uploaded = 0
     failed = 0
@@ -134,12 +145,16 @@ def step_upload_to_server(pins_csv: Path) -> Dict[str, int]:
     if fieldnames:
         write_csv_dict(pins_csv, rows, fieldnames, config.csv_delimiter, config.csv_encoding)
 
-    return {"uploaded": uploaded, "failed": failed, "skipped": skipped, "total": len(rows)}
+    stats = {"uploaded": uploaded, "failed": failed, "skipped": skipped, "total": len(rows)}
+    log_event("step_upload_completed", **stats)
+    return stats
 
 
 def step_cleanup_publish_dir() -> Dict[str, int]:
     if not config.publish_images_cleanup_enabled:
-        return {"deleted": 0, "kept": 0, "scanned": 0}
+        stats = {"deleted": 0, "kept": 0, "scanned": 0}
+        log_event("step_cleanup_skipped", **stats)
+        return stats
 
     keep_days = max(1, int(config.publish_images_retention_days))
     cutoff_ts = datetime.now().timestamp() - keep_days * 86400
@@ -186,11 +201,16 @@ def step_cleanup_publish_dir() -> Dict[str, int]:
         except Exception:
             remote_deleted = 0
 
-    return {"deleted": deleted, "kept": kept, "scanned": scanned, "remote_deleted": remote_deleted}
+    stats = {"deleted": deleted, "kept": kept, "scanned": scanned, "remote_deleted": remote_deleted}
+    log_event("step_cleanup_completed", **stats)
+    return stats
 
 
 def step_queue_sync(pins_csv: Path) -> int:
-    return sync_pins_csv(pins_csv)
+    log_event("step_queue_sync_started", pins_csv=str(pins_csv))
+    inserted = sync_pins_csv(pins_csv)
+    log_event("step_queue_sync_completed", inserted=inserted)
+    return inserted
 
 
 def step_publish(limit: int = 1) -> Dict[str, int]:
@@ -214,6 +234,7 @@ def step_publish_one_job(job: Dict[str, str]) -> str:
 
 
 def run_daily_prepare(limit: int) -> Dict[str, int]:
+    log_event("run_daily_prepare_started", limit=limit)
     movies_csv = step_download(limit)
     clean_csv = step_process(movies_csv)
     pins_csv = step_export(clean_csv)
@@ -223,10 +244,12 @@ def run_daily_prepare(limit: int) -> Dict[str, int]:
     console.print(
         f"[green]Daily prepare done[/green]: upload={upload_stats}, cleanup={cleanup_stats}, queue_inserted={inserted}"
     )
-    return {
+    stats = {
         "download_limit": limit,
         "uploaded": upload_stats["uploaded"],
         "upload_failed": upload_stats["failed"],
         "publish_dir_deleted": cleanup_stats["deleted"],
         "queue_inserted": inserted,
     }
+    log_event("run_daily_prepare_completed", **stats)
+    return stats

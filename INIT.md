@@ -301,3 +301,14 @@
 - Для Docker-сервисов `kinopois-prepare` и `kinopois-autopilot` добавлены
   явные DNS-серверы (`1.1.1.1`, `8.8.8.8`) в `docker-compose.yml` для
   снижения ошибок резолвинга `avatars.mds.yandex.net`.
+
+## Изменения 2026-05-17 (anti-dup + faster upload pass)
+
+- Добавлена файловая блокировка `movies.csv.lock` в `download_and_save()`:
+  - параллельные запуски больше не пишут в `movies.csv` одновременно;
+  - снижает риск дублей при одновременном `autopilot` и ручном запуске.
+- `step_upload_to_server()` переведён в инкрементальный режим:
+  - строки с `vds_upload_status=uploaded` и существующим файлом в
+    `data/publish/ready` пропускаются;
+  - не гоняет каждый раз весь массив загруженных изображений заново;
+  - добавлено поле статистики `skipped`.

@@ -1,6 +1,7 @@
 """Scraper for Kinopoisk API."""
 
 import csv
+import fcntl
 import json
 import subprocess
 import time
@@ -235,67 +236,70 @@ class KinopoiskScraper:
         if mode == "w" and output_csv.exists():
             backup_rows = read_csv_dict(output_csv, config.csv_delimiter, config.csv_encoding)
 
-        with open(output_csv, mode, newline="", encoding=config.csv_encoding) as f:
-            writer = csv.DictWriter(f, fieldnames=fieldnames, delimiter=config.csv_delimiter)
-            if mode == "w":
-                writer.writeheader()
+        lock_path = output_csv.with_suffix(output_csv.suffix + ".lock")
+        with open(lock_path, "w", encoding="utf-8") as lock_file:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+            with open(output_csv, mode, newline="", encoding=config.csv_encoding) as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames, delimiter=config.csv_delimiter)
+                if mode == "w":
+                    writer.writeheader()
 
-            while collected < limit:
-                per_page = self._effective_page_limit(config.page_size)
-                movies, total_pages = self.fetch_movies(
-                    page=page,
-                    limit=per_page,
-                    rating_min=config.rating_min,
-                    rating_max=config.rating_max,
-                    year_min=config.year_min,
-                    year_max=config.year_max,
-                )
+                while collected < limit:
+                    per_page = self._effective_page_limit(config.page_size)
+                    movies, total_pages = self.fetch_movies(
+                        page=page,
+                        limit=per_page,
+                        rating_min=config.rating_min,
+                        rating_max=config.rating_max,
+                        year_min=config.year_min,
+                        year_max=config.year_max,
+                    )
 
-                if not movies:
-                    break
-
-                for movie in movies:
-                    if collected >= limit:
+                    if not movies:
                         break
 
-                    data = self.extract_movie_data(movie)
-                    # Use full URL first, then preview as network fallback.
-                    poster_url = str(data.get("poster_url") or "").strip()
-                    poster_preview_url = str(data.get("poster_preview_url") or "").strip()
-                    kp_id = str(data.get("kp_id", "")).strip()
-
-                    if not kp_id:
-                        continue
-                    if kp_id in existing_ids:
-                        continue
-
-                    # Skip if no poster at all.
-                    if not poster_url and not poster_preview_url:
-                        continue
-
-                    # Download poster with URL fallback.
-                    poster_filename = f"{kp_id}.jpg"
-                    poster_path = None
-                    for candidate_url in [poster_url, poster_preview_url]:
-                        if not candidate_url:
-                            continue
-                        poster_path = self.download_poster(candidate_url, poster_filename)
-                        if poster_path:
+                    for movie in movies:
+                        if collected >= limit:
                             break
 
-                    if not poster_path:
-                        continue
+                        data = self.extract_movie_data(movie)
+                        # Use full URL first, then preview as network fallback.
+                        poster_url = str(data.get("poster_url") or "").strip()
+                        poster_preview_url = str(data.get("poster_preview_url") or "").strip()
+                        kp_id = str(data.get("kp_id", "")).strip()
 
-                    data["poster_file"] = str(poster_path)
-                    writer.writerow(data)
-                    existing_ids.add(kp_id)
+                        if not kp_id:
+                            continue
+                        if kp_id in existing_ids:
+                            continue
 
-                    collected += 1
-                    console.print(f"[green][{collected}/{limit}][/green] {data['title']} ({data['year']})")
+                        # Skip if no poster at all.
+                        if not poster_url and not poster_preview_url:
+                            continue
 
-                page += 1
-                if page > total_pages:
-                    break
+                        # Download poster with URL fallback.
+                        poster_filename = f"{kp_id}.jpg"
+                        poster_path = None
+                        for candidate_url in [poster_url, poster_preview_url]:
+                            if not candidate_url:
+                                continue
+                            poster_path = self.download_poster(candidate_url, poster_filename)
+                            if poster_path:
+                                break
+
+                        if not poster_path:
+                            continue
+
+                        data["poster_file"] = str(poster_path)
+                        writer.writerow(data)
+                        existing_ids.add(kp_id)
+
+                        collected += 1
+                        console.print(f"[green][{collected}/{limit}][/green] {data['title']} ({data['year']})")
+
+                    page += 1
+                    if page > total_pages:
+                        break
 
         if mode == "w" and collected == 0 and backup_rows:
             with open(output_csv, "w", newline="", encoding=config.csv_encoding) as f:

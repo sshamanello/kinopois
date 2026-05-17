@@ -69,12 +69,18 @@ def step_upload_to_server(pins_csv: Path) -> Dict[str, int]:
     rows = read_csv_dict(pins_csv, config.csv_delimiter, config.csv_encoding)
     uploaded = 0
     failed = 0
+    skipped = 0
     now_str = datetime.now().isoformat(timespec="seconds")
 
     for row in rows:
         kp_id = str(row.get("id", "")).strip()
         if not kp_id:
             failed += 1
+            continue
+        dst = config.publish_images_dir / f"{kp_id}.jpg"
+        already_uploaded = str(row.get("vds_upload_status", "")).strip().lower() == "uploaded"
+        if already_uploaded and dst.exists():
+            skipped += 1
             continue
 
         src_candidates = [
@@ -103,7 +109,6 @@ def step_upload_to_server(pins_csv: Path) -> Dict[str, int]:
                 failed += 1
                 continue
 
-        dst = config.publish_images_dir / f"{kp_id}.jpg"
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dst)
 
@@ -129,7 +134,7 @@ def step_upload_to_server(pins_csv: Path) -> Dict[str, int]:
     if fieldnames:
         write_csv_dict(pins_csv, rows, fieldnames, config.csv_delimiter, config.csv_encoding)
 
-    return {"uploaded": uploaded, "failed": failed, "total": len(rows)}
+    return {"uploaded": uploaded, "failed": failed, "skipped": skipped, "total": len(rows)}
 
 
 def step_cleanup_publish_dir() -> Dict[str, int]:

@@ -290,6 +290,7 @@ class KinopoiskScraper:
                         if not poster_path:
                             continue
 
+                        data.pop("poster_preview_url", None)
                         data["poster_file"] = str(poster_path)
                         writer.writerow(data)
                         existing_ids.add(kp_id)

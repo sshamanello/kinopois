@@ -10,6 +10,9 @@ services:
       - ./logs:/app/logs
       # Google service account JSON (read-only inside container)
       - ./credentials:/app/credentials:ro
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
     # Default: full pipeline with Sheets sync.
     # Manual/cron usage:
     # docker compose run --rm kinopois-prepare
@@ -23,4 +26,7 @@ services:
       - ./data:/app/data
       - ./logs:/app/logs
       - ./credentials:/app/credentials:ro
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
     command: autopilot

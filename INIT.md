@@ -292,3 +292,12 @@
   - append-only запись в `movies.csv`;
   - пропуск уже существующих `kp_id`;
   - дублей по `kp_id` в выгрузке не добавляется.
+
+## Изменения 2026-05-17 (network hardening for poster downloads)
+
+- Усилено скачивание постеров в `scraper.py`:
+  - до 3 попыток на один URL с коротким backoff;
+  - fallback URL: сначала `poster.url`, затем `poster.previewUrl`, если основной не скачался.
+- Для Docker-сервисов `kinopois-prepare` и `kinopois-autopilot` добавлены
+  явные DNS-серверы (`1.1.1.1`, `8.8.8.8`) в `docker-compose.yml` для
+  снижения ошибок резолвинга `avatars.mds.yandex.net`.

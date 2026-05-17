@@ -144,18 +144,23 @@ class KinopoiskScraper:
         Returns:
             Path to downloaded file or None if failed.
         """
-        try:
-            response = requests.get(url, stream=True, timeout=20)
-            response.raise_for_status()
+        for attempt in range(1, 4):
+            try:
+                response = requests.get(url, stream=True, timeout=20)
+                response.raise_for_status()
 
-            filepath = config.posters_dir / filename
-            with open(filepath, "wb") as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    f.write(chunk)
-            return filepath
-        except requests.RequestException as e:
-            console.print(f"[red]Error downloading poster from {url}: {e}[/red]")
-            return None
+                filepath = config.posters_dir / filename
+                with open(filepath, "wb") as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        f.write(chunk)
+                return filepath
+            except requests.RequestException as e:
+                if attempt < 3:
+                    time.sleep(attempt)
+                    continue
+                console.print(f"[red]Error downloading poster from {url}: {e}[/red]")
+                return None
+        return None
 
     def extract_movie_data(self, movie: Dict[str, Any]) -> Dict[str, Any]:
         """Extract relevant data from movie API response."""
@@ -254,10 +259,9 @@ class KinopoiskScraper:
                         break
 
                     data = self.extract_movie_data(movie)
-                    # Use full poster URL first; preview URLs often contain
-                    # lower-quality or watermarked variants.
-                    data.pop("poster_preview_url", None)
+                    # Use full URL first, then preview as network fallback.
                     poster_url = str(data.get("poster_url") or "").strip()
+                    poster_preview_url = str(data.get("poster_preview_url") or "").strip()
                     kp_id = str(data.get("kp_id", "")).strip()
 
                     if not kp_id:
@@ -265,13 +269,19 @@ class KinopoiskScraper:
                     if kp_id in existing_ids:
                         continue
 
-                    # Skip if no poster
-                    if not poster_url:
+                    # Skip if no poster at all.
+                    if not poster_url and not poster_preview_url:
                         continue
 
-                    # Download poster
+                    # Download poster with URL fallback.
                     poster_filename = f"{kp_id}.jpg"
-                    poster_path = self.download_poster(poster_url, poster_filename)
+                    poster_path = None
+                    for candidate_url in [poster_url, poster_preview_url]:
+                        if not candidate_url:
+                            continue
+                        poster_path = self.download_poster(candidate_url, poster_filename)
+                        if poster_path:
+                            break
 
                     if not poster_path:
                         continue

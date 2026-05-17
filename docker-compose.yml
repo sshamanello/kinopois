@@ -1,12 +1,26 @@
 services:
-  kinopois:
+  kinopois-prepare:
     build: .
     env_file: .env
+    restart: "no"
     volumes:
       # Persistent data — survives container restarts
       - ./data:/app/data
+      # Persistent logs
+      - ./logs:/app/logs
       # Google service account JSON (read-only inside container)
       - ./credentials:/app/credentials:ro
     # Default: full pipeline with Sheets sync.
-    # Override via: docker compose run kinopois <command>
+    # Manual/cron usage:
+    # docker compose run --rm kinopois-prepare
     command: run-pins --limit 200 --sync-sheets
+
+  kinopois-autopilot:
+    build: .
+    env_file: .env
+    restart: always
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./credentials:/app/credentials:ro
+    command: autopilot

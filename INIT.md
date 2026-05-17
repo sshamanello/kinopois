@@ -270,3 +270,15 @@
 - Проверка на сервере двумя подряд запусками `download --limit 10`:
   - после 1-го запуска: `20 total / 20 unique / 0 dup`,
   - после 2-го запуска: `30 total / 30 unique / 0 dup`.
+
+## Изменения 2026-05-17 (dockerized prod runtime)
+
+- `docker-compose.yml` разделён на 2 сервиса:
+  - `kinopois-prepare` — one-shot подготовка (`run-pins --sync-sheets`);
+  - `kinopois-autopilot` — постоянный daemon (`kinopois autopilot`, `restart: always`).
+- Добавлен persistent mount для логов контейнера:
+  - `./logs:/app/logs`.
+- Обновлены deploy-скрипты:
+  - `deploy/cron-setup.sh` теперь использует `kinopois-prepare`;
+  - `deploy/server-setup.sh` дополнен шагом `docker compose up -d kinopois-autopilot`.
+- README обновлён под новый Docker-flow и команды анализа логов.

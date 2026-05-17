@@ -8,7 +8,7 @@ REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 LOG_FILE="$REPO_DIR/data/kinopois-cron.log"
 CRON_HOUR="${CRON_HOUR:-9}"   # default: 9:00 every day
 
-CRON_CMD="cd $REPO_DIR && docker compose run --rm kinopois >> $LOG_FILE 2>&1"
+CRON_CMD="cd $REPO_DIR && docker compose run --rm kinopois-prepare >> $LOG_FILE 2>&1"
 CRON_LINE="0 $CRON_HOUR * * * $CRON_CMD"
 
 # Add to crontab if not already there

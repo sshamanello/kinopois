@@ -172,10 +172,27 @@ new ones are appended.
 
 ```bash
 docker compose build
-docker compose run --rm kinopois run-pins --limit 200 --sync-sheets
+docker compose run --rm kinopois-prepare run-pins --limit 200 --sync-sheets
+
+# Always-on autonomous mode (daily harvest + optional publish slots)
+docker compose up -d kinopois-autopilot
 ```
 
 `data/` and `credentials/` are volume-mounted and never baked into the image.
+`logs/` is also mounted for persistent runtime logs.
+
+### Logs (for AI analysis)
+
+```bash
+# Container logs
+docker compose logs --since=24h kinopois-autopilot
+
+# Live stream
+docker compose logs -f kinopois-autopilot
+
+# Cron/one-shot logs
+tail -n 500 data/kinopois-cron.log
+```
 
 ### Cron (daily at 09:00)
 

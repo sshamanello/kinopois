@@ -41,10 +41,7 @@ class KinopoiskScraper:
         }
 
     def _effective_page_limit(self, requested_limit: int) -> int:
-        """Clamp per-page limit for poiskkino demo/free constraints."""
-        host = (urlsplit(self.api_url).hostname or "").lower()
-        if "poiskkino.dev" in host:
-            return max(1, min(10, int(requested_limit)))
+        """Return requested per-page limit (no hard clamp)."""
         return max(1, int(requested_limit))
 
     def _fetch_movies_via_resolve(self, params: Dict[str, Any]) -> tuple[List[Dict[str, Any]], int]:
@@ -240,10 +237,6 @@ class KinopoiskScraper:
 
             while collected < limit:
                 per_page = self._effective_page_limit(config.page_size)
-                if per_page != int(config.page_size):
-                    console.print(
-                        f"[yellow]Poiskkino per-page limit forced to {per_page} (demo/free constraint)[/yellow]"
-                    )
                 movies, total_pages = self.fetch_movies(
                     page=page,
                     limit=per_page,

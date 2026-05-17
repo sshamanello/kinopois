@@ -282,3 +282,13 @@
   - `deploy/cron-setup.sh` теперь использует `kinopois-prepare`;
   - `deploy/server-setup.sh` дополнен шагом `docker compose up -d kinopois-autopilot`.
 - README обновлён под новый Docker-flow и команды анализа логов.
+
+## Изменения 2026-05-17 (remove hard 10-per-page clamp)
+
+- Убран жёсткий лимит `limit=10` для `api.poiskkino.dev` в `scraper.py`.
+- Теперь `download` использует фактический `page_size` из конфигурации и может
+  набирать дневной лимит до `AUTOPILOT_DOWNLOAD_LIMIT_PER_DAY=200`.
+- Логика "только новые" сохранена:
+  - append-only запись в `movies.csv`;
+  - пропуск уже существующих `kp_id`;
+  - дублей по `kp_id` в выгрузке не добавляется.

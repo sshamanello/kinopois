@@ -4,7 +4,7 @@ WORKDIR /app
 
 # System deps for Pillow
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libjpeg-dev libpng-dev libfreetype6-dev \
+    curl libjpeg-dev libpng-dev libfreetype6-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python deps first (layer cache)
@@ -13,6 +13,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy source and install package
 COPY pyproject.toml .
+COPY README.md .
 COPY kinopois/ kinopois/
 RUN pip install --no-cache-dir -e .
 

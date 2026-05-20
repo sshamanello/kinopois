@@ -58,8 +58,14 @@ class MovieProcessor:
 
             console.print(f"[cyan]Kept:[/cyan] {title} [{movie['primary_genre']}]")
 
-        # Build fieldnames without duplicating primary_genre (it was added to movie dict in loop)
-        fieldnames = list(self.movies[0].keys()) if self.movies else []
+        # Build fieldnames from cleaned rows because the first source row may be skipped
+        # and not contain "primary_genre".
+        if cleaned:
+            fieldnames = list(cleaned[0].keys())
+        elif self.movies:
+            fieldnames = list(self.movies[0].keys())
+        else:
+            fieldnames = []
         write_csv_dict(output_csv, cleaned, fieldnames, config.csv_delimiter, config.csv_encoding)
 
         console.print(f"[green]Cleaned data saved to {output_csv} ({len(cleaned)} movies)[/green]")

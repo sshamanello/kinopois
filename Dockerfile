@@ -4,7 +4,7 @@ WORKDIR /app
 
 # System deps for Pillow
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl libjpeg-dev libpng-dev libfreetype6-dev \
+    curl openssh-client libjpeg-dev libpng-dev libfreetype6-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python deps first (layer cache)

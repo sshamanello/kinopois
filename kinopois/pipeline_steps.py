@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
@@ -32,24 +33,34 @@ def _scp_to_remote(local_path: Path, kp_id: str) -> tuple[bool, str]:
     ssh_opts = [
         "-o", "BatchMode=yes",
         "-o", "StrictHostKeyChecking=no",
+        "-o", "UserKnownHostsFile=/dev/null",
+        "-o", "GlobalKnownHostsFile=/dev/null",
+        "-o", "LogLevel=ERROR",
         "-o", f"ConnectTimeout={max(1, int(config.publish_remote_connect_timeout_sec))}",
     ]
-    try:
-        proc = subprocess.run(
-            ["scp", *ssh_opts, str(local_path), remote],
-            capture_output=True,
-            text=True,
-            timeout=max(3, int(config.publish_remote_cmd_timeout_sec)),
-        )
-    except subprocess.TimeoutExpired:
-        return False, "remote_scp_timeout"
-    except Exception as exc:
-        return False, f"remote_scp_error:{exc}"
+    attempts = 3
+    last_err = "remote_scp_failed"
+    for idx in range(attempts):
+        try:
+            proc = subprocess.run(
+                ["scp", *ssh_opts, str(local_path), remote],
+                capture_output=True,
+                text=True,
+                timeout=max(3, int(config.publish_remote_cmd_timeout_sec)),
+            )
+        except subprocess.TimeoutExpired:
+            last_err = "remote_scp_timeout"
+        except Exception as exc:
+            last_err = f"remote_scp_error:{exc}"
+        else:
+            if proc.returncode == 0:
+                return True, ""
+            last_err = (proc.stderr or proc.stdout or "remote_scp_failed").strip()
 
-    if proc.returncode != 0:
-        err = (proc.stderr or proc.stdout or "remote_scp_failed").strip()
-        return False, err
-    return True, ""
+        if idx < attempts - 1:
+            time.sleep(1.0 + idx)
+
+    return False, last_err
 
 
 def step_download(limit: int) -> Path:

@@ -10,13 +10,16 @@ services:
       - ./logs:/app/logs
       # Google service account JSON (read-only inside container)
       - ./credentials:/app/credentials:ro
+      # SSH key pair for remote publish sync (87.120.219.4)
+      - /home/nick/.ssh/id_ed25519:/root/.ssh/id_ed25519:ro
+      - /home/nick/.ssh/known_hosts:/root/.ssh/known_hosts:ro
     dns:
       - 1.1.1.1
       - 8.8.8.8
-    # Default: full pipeline with Sheets sync.
+    # Default: full base pipeline with Sheets sync.
     # Manual/cron usage:
     # docker compose run --rm kinopois-prepare
-    command: run-pins --limit 200 --sync-sheets
+    command: run-base-pipeline --limit 200 --sync-sheets
 
   kinopois-autopilot:
     build: .

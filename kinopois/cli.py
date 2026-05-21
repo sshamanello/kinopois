@@ -865,10 +865,31 @@ def autopilot_daemon_cmd():
 @main.command("run-base-pipeline")
 @click.option("--limit", default=200, type=int, help="Download limit for this run")
 @click.option("--publish", default=0, type=int, help="Publish N ready jobs after prepare")
-def run_base_pipeline_cmd(limit, publish):
+@click.option(
+    "--sync-sheets",
+    is_flag=True,
+    help="Also sync pins.csv to Google Sheets and refresh upload fields",
+)
+def run_base_pipeline_cmd(limit, publish, sync_sheets):
     """Run base modular pipeline: download -> process -> upload -> queue."""
     stats = run_daily_prepare(max(1, int(limit)))
     print_success(f"Prepare complete: {stats}")
+    if sync_sheets:
+        if not _SHEETS_AVAILABLE:
+            print_error("Google Sheets integration not available", "Run: pip install gspread google-auth")
+            raise click.Abort()
+        if not config.google_sheets_id:
+            print_error("GOOGLE_SHEETS_ID is not set", "Add GOOGLE_SHEETS_ID to your .env file")
+            raise click.Abort()
+        try:
+            sheet_stats = _sync_sheets(config.cache_dir / "pins.csv", upsert=False)
+            upload_stats = _sync_upload_fields_to_sheets(config.cache_dir / "pins.csv")
+            print_success(f"Sheets synced: {sheet_stats}; upload fields synced: {upload_stats}")
+        except Exception as exc:
+            print_error(
+                f"Sheets sync failed: {exc}",
+                "Prepare/upload completed; rerun `kinopois sync-sheets` later to reconcile.",
+            )
     if publish > 0:
         pub = step_publish(limit=publish)
         print_success(f"Publish complete: {pub}")

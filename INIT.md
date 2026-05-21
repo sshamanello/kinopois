@@ -323,3 +323,35 @@
   - `autopilot_*` события тиков, harvest и публикационных слотов;
   - сетевые ошибки `fetch_movies_failed`, `poster_download_failed`,
     а также fallback `fetch_movies_fallback_resolve`.
+
+## Изменения 2026-05-21 (stable full-cycle prod mode)
+
+- `run-base-pipeline` расширен флагом `--sync-sheets`:
+  - после prepare выполняется `sync_pins_to_sheets(..., upsert=False)`;
+  - затем `sync_upload_fields_to_sheets(...)` для актуализации `public_image_url`,
+    `vds_upload_status`, `publish_status` и связанных полей.
+- `deploy/cron-setup.sh` переведён на production-safe поведение:
+  - дефолтный запуск в `21:00` (`CRON_TZ=Europe/Moscow`);
+  - лог в `data/logs/cron.log`;
+  - поддержка двух режимов запуска:
+    - `docker compose run --rm kinopois-prepare ...` (если compose доступен),
+    - `docker run ... kinopois:prod ...` (fallback без compose).
+- `docker-compose.yml` для `kinopois-prepare` синхронизирован с базовым циклом:
+  - команда по умолчанию `run-base-pipeline --limit 200 --sync-sheets`.
+
+## Изменения 2026-05-21 (remote upload reliability + cron idempotency)
+
+- Исправлена реальная выгрузка на `87.120.219.4` из Docker-контейнера:
+  - в `Dockerfile` добавлен `openssh-client` (без него `scp` отсутствовал);
+  - в `docker-compose.yml` добавлены точечные монтирования SSH-ключа/known_hosts:
+    - `/home/nick/.ssh/id_ed25519:/root/.ssh/id_ed25519:ro`
+    - `/home/nick/.ssh/known_hosts:/root/.ssh/known_hosts:ro`.
+- Усилен `step_upload_to_server`:
+  - `scp` теперь с retry (3 попытки, backoff), чтобы сглаживать временные сетевые таймауты;
+  - добавлены `ssh` опции для чистых логов в read-only known_hosts окружении.
+- `run-base-pipeline --sync-sheets` теперь не ломает весь цикл при сетевом сбое Google Sheets:
+  - prepare/upload завершаются;
+  - ошибка sync логируется в CLI с подсказкой про `kinopois sync-sheets`.
+- `deploy/cron-setup.sh` сделан идемпотентным:
+  - повторный запуск не дублирует `CRON_TZ` и cron-строки;
+  - гарантируется одна рабочая задача на `21:00 Europe/Moscow`.

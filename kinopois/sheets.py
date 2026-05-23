@@ -239,7 +239,9 @@ def sync_upload_fields_to_sheets(csv_path: Optional[Path] = None) -> Dict[str, i
     sheet_rows = ws.get_all_records(expected_headers=SHEET_HEADERS)
     sheet_by_id = {str(r.get("id", "")).strip(): idx + 2 for idx, r in enumerate(sheet_rows) if r.get("id")}
 
-    fields = ["image_url", "public_image_url", "remote_image_path", "vds_upload_status", "uploaded_at", "publish_status", "error_reason"]
+    # Do not overwrite publish_status from pins.csv:
+    # n8n is the source of truth for publish lifecycle in the sheet.
+    fields = ["image_url", "public_image_url", "remote_image_path", "vds_upload_status", "uploaded_at", "error_reason"]
     updates = []
     updated = 0
     skipped = 0

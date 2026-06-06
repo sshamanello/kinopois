@@ -11,7 +11,7 @@ import requests
 from rich.console import Console
 
 from kinopois.config import config
-from kinopois.frame import render_framed_poster
+from kinopois.processing.frame import render_framed_poster
 from kinopois.utils import read_csv_dict, safe_filename, write_csv_dict
 
 console = Console()

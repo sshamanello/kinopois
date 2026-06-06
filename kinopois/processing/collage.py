@@ -8,7 +8,7 @@ from PIL import Image, ImageDraw, ImageFont
 from rich.console import Console
 
 from kinopois.config import config
-from kinopois.processor import load_clean_movies
+from kinopois.processing.processor import load_clean_movies
 from kinopois.utils import safe_filename, write_csv_dict
 
 console = Console()

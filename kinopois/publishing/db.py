@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from kinopois.config import config
+from kinopois.publishing.eventlog import log_event
 from kinopois.utils import read_csv_dict
 
 
@@ -280,10 +281,12 @@ def mark_posted(job_id: int, pin_id: str, db_path: Optional[Path] = None) -> Non
             """,
             (pin_id, now, now, job_id),
         )
+    log_event("publish_job_marked_posted", job_id=job_id, pin_id=pin_id, posted_at=now)
 
 
 def mark_failed(job_id: int, error: str, db_path: Optional[Path] = None) -> None:
     now = datetime.utcnow().isoformat(timespec="seconds")
+    error_text = (error or "").strip()
     with get_conn(db_path) as conn:
         conn.execute(
             """
@@ -291,8 +294,9 @@ def mark_failed(job_id: int, error: str, db_path: Optional[Path] = None) -> None
             SET status='failed', error=?, retries=retries+1, updated_at=?
             WHERE id=?
             """,
-            (error[:2000], now, job_id),
+            (error_text[:2000], now, job_id),
         )
+    log_event("publish_job_marked_failed", job_id=job_id, error=error_text[:500], failed_at=now)
 
 
 def sync_all_from_csv(cache_dir: Optional[Path] = None, db_path: Optional[Path] = None) -> Dict[str, int]:

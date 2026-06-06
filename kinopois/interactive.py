@@ -11,17 +11,17 @@ from rich.table import Table
 
 from kinopois import __version__
 from kinopois.cli import main as cli_main
-from kinopois.collage import create_collages
+from kinopois.processing.collage import create_collages
 from kinopois.config import config
-from kinopois.export import (
+from kinopois.publishing.export import (
     export_pinterest_csv,
     export_simple_collages_csv,
     export_summary,
 )
-from kinopois.marker import mark_posters, PosterMarker
-from kinopois.processor import load_clean_movies, load_movies
-from kinopois.scraper import KinopoiskScraper
-from kinopois.db import (
+from kinopois.processing.marker import mark_posters, PosterMarker
+from kinopois.processing.processor import load_clean_movies, load_movies
+from kinopois.download.scraper import KinopoiskScraper
+from kinopois.publishing.db import (
     init_db,
     sync_pins_csv,
     get_ready_jobs,

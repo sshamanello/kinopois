@@ -19,16 +19,16 @@ from rich.panel import Panel
 from rich.table import Table
 
 from kinopois import __version__
-from kinopois.autopilot import Autopilot
-from kinopois.collage import create_collages
+from kinopois.publishing.autopilot import Autopilot
+from kinopois.processing.collage import create_collages
 from kinopois.config import config
-from kinopois.export import (
+from kinopois.publishing.export import (
     export_pinterest_csv,
     export_simple_collages_csv,
     export_summary,
     export_movie_pins_csv,
 )
-from kinopois.db import (
+from kinopois.publishing.db import (
     init_db,
     sync_pins_csv,
     get_ready_jobs,
@@ -37,15 +37,15 @@ from kinopois.db import (
     sync_all_from_csv,
     db_counts,
 )
-from kinopois.marker import mark_posters, PosterMarker
-from kinopois.pipeline_steps import run_daily_prepare, step_publish
-from kinopois.processor import load_clean_movies, load_movies
-from kinopois.scraper import KinopoiskScraper
+from kinopois.processing.marker import mark_posters, PosterMarker
+from kinopois.publishing.pipeline_steps import run_daily_prepare, step_publish
+from kinopois.processing.processor import load_clean_movies, load_movies
+from kinopois.download.scraper import KinopoiskScraper
 
 try:
-    from kinopois.sheets import normalize_sheet_statuses as _normalize_sheet_statuses
-    from kinopois.sheets import sync_upload_fields_to_sheets as _sync_upload_fields_to_sheets
-    from kinopois.sheets import sync_pins_to_sheets as _sync_sheets
+    from kinopois.publishing.sheets import normalize_sheet_statuses as _normalize_sheet_statuses
+    from kinopois.publishing.sheets import sync_upload_fields_to_sheets as _sync_upload_fields_to_sheets
+    from kinopois.publishing.sheets import sync_pins_to_sheets as _sync_sheets
 
     _SHEETS_AVAILABLE = True
 except ImportError:

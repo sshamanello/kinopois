@@ -14,12 +14,12 @@ import requests
 from rich.console import Console
 
 from kinopois.config import config
-from kinopois.db import get_ready_jobs, mark_failed, mark_posted
-from kinopois.eventlog import log_event
-from kinopois.pipeline_steps import run_daily_prepare, step_publish_one_job
+from kinopois.publishing.db import get_ready_jobs, mark_failed, mark_posted
+from kinopois.publishing.eventlog import log_event
+from kinopois.publishing.pipeline_steps import run_daily_prepare, step_publish_one_job
 
 try:
-    from kinopois.sheets import sync_pins_to_sheets
+    from kinopois.publishing.sheets import sync_pins_to_sheets
 
     _SHEETS_AVAILABLE = True
 except ImportError:

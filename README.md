@@ -1,278 +1,63 @@
 # kinopois
 
-CLI tool for downloading movie posters from Kinopoisk, building Pinterest-ready pin rows, and syncing them to Google Sheets for automated publishing via n8n.
+`kinopois` is a Python CLI for downloading Kinopoisk posters, cleaning movie metadata, and exporting Pinterest-ready rows for automated publishing.
 
-## Features
+## Project layout
 
-- Download movie posters from Kinopoisk.dev API
-- Clean and process movie metadata
-- Export Pinterest-ready CSV (`pins.csv`) with titles, descriptions, keywords, boards
-- Sync pins to Google Sheets (upsert by ID)
-- Create 2x2 collages grouped by genre
-- Full pipeline in one command
-- Autonomous scheduler mode (daily harvest + timed posting slots)
-- Docker + cron deployment
-
-## Architecture
-
-```
-Kinopoisk.dev API
-    |  kinopois download
-data/cache/movies.csv          raw API data
-    |  kinopois process
-data/cache/movies_clean.csv    cleaned, primary_genre added
-    |  kinopois export-movie-pins
-data/cache/pins.csv            one row per poster, all Pinterest fields
-    |  kinopois sync-sheets
-Google Sheets (tab: pins)      n8n reads rows, posts to Pinterest
+```text
+kinopois/
+  download/      Kinopoisk API client and poster download
+  processing/    CSV cleaning, collages, framing, watermarking
+  publishing/    CSV export, Google Sheets sync, SQLite queue, autopilot
+  cli.py         Click entrypoint
+  config.py      Env-backed configuration
+  utils.py       Shared CSV and parsing helpers
+docs/            Full project documentation
 ```
 
-The collage pipeline (`kinopois run-prod`) runs independently and produces
-`data/collages/` images + `data/cache/collages.csv`.
+## Main flow
 
-## Installation
+1. `kinopois download` pulls raw movie data into `data/cache/movies.csv`
+2. `kinopois process` cleans the dataset into `data/cache/movies_clean.csv`
+3. `kinopois export-movie-pins` builds `data/cache/pins.csv`
+4. `kinopois sync` pushes rows to Google Sheets
 
-### Requirements
+The collage pipeline is separate and writes `data/collages/` plus `data/cache/collages.csv`.
 
-- Python 3.10+
-
-### Install from source
+## Install
 
 ```bash
-cd kinopois
 python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+source .venv/bin/activate
 pip install -e .
 ```
 
-### Dependencies
+## Common commands
 
-```
-click requests pillow python-dotenv rich questionary gspread google-auth
+```bash
+kinopois download --limit 200
+kinopois process
+kinopois export-movie-pins
+kinopois sync
+kinopois pins --limit 200 --sync-sheets
+kinopois run-prod --limit 200 --max-per-genre 1
 ```
 
 ## Configuration
 
-Copy `.env.example` to `.env` and fill in your values:
+Copy `.env.example` to `.env` and set at least:
 
 ```env
-# Required
-KINOPOISK_API_KEY=your_api_key_here
-
-# URL prefix for poster images (self-hosted or CDN)
-POSTERS_BASE_URL=https://example.com/posters
-
-# Telegram bot link used in pin descriptions
-BOT_URL=https://t.me/your_bot
-
-# Google Sheets (optional, for sync-sheets)
-GOOGLE_CREDS_FILE=credentials/service_account.json
-GOOGLE_SHEETS_ID=your_spreadsheet_id
-GOOGLE_SHEETS_TAB=pins
+KINOPOISK_API_KEY=...
+GOOGLE_CREDS_FILE=credentials/google-service-account.json
+GOOGLE_SHEETS_ID=...
 ```
 
-Get your Kinopoisk API key at [kinopoisk.dev](https://kinopoisk.dev/).
+## Documentation
 
-## Usage
-
-### Main pipeline — pins + Google Sheets
-
-```bash
-# Full pipeline: download -> process -> export pins.csv -> sync to Sheets
-kinopois pins --limit 200 --sync-sheets
-
-# Without Sheets sync
-kinopois pins --limit 200
-
-# Re-export pins.csv from existing movies_clean.csv
-kinopois export-movie-pins
-
-# Push existing pins.csv to Google Sheets
-kinopois sync
-
-# Normalize sheet statuses (fix empty/invalid status values)
-kinopois reconcile-sheet-statuses
-```
-
-### Autonomous server mode
-
-```bash
-# One pass (useful for health-check and cron testing)
-kinopois autopilot-once
-
-# Long-running daemon:
-# - harvest once per day (append mode, up to AUTOPILOT_DOWNLOAD_LIMIT_PER_DAY)
-# - then tries publish slots by AUTOPILOT_SLOT_HOURS
-kinopois autopilot
-
-# Modular base flow (download -> process -> upload -> queue)
-kinopois run-base-pipeline --limit 200
-```
-
-Image hosting for Pinterest should point to `http://87.120.219.4/pins/ready`.
-Set:
-- `PUBLISH_IMAGES_DIR=/var/www/html/pins/ready`
-- `PUBLISH_IMAGES_BASE_URL=http://87.120.219.4/pins/ready`
-- `PUBLISH_IMAGES_CLEANUP_ENABLED=1`
-- `PUBLISH_IMAGES_RETENTION_DAYS=21`
-
-Autopilot is stateful and keeps `data/cache/autopilot_state.json`.
-It is designed for long-term backlog growth: daily harvest appends new movies
-to `movies.csv` instead of replacing old rows.
-By default autopilot publishes directly to Pinterest API using
-`PINTEREST_ACCESS_TOKEN` + `board_id` from row (or fallback `PINTEREST_BOARD_ID`).
-`AUTOPILOT_PUBLISH_COMMAND` is optional override for custom external posting.
-
-### Collage pipeline
-
-```bash
-# Full collage pipeline: download -> process -> collages -> export
-kinopois run-prod --limit 200 --max-per-genre 1
-
-# With watermark
-kinopois run-prod --limit 200 --max-per-genre 1 --watermark-text "@YourBot"
-```
-
-### Individual commands
-
-```bash
-# Download posters from Kinopoisk
-kinopois download --limit 200
-
-# Clean and process movies.csv
-kinopois process
-
-# Create 2x2 collages by genre
-kinopois collage --watermark "@YourBot" --max-per-genre 5
-
-# Add watermark to poster images
-kinopois mark data/posters --text "@YourBot" --position bottom
-
-# Show project info (file counts, sizes)
-kinopois info
-
-# Clean generated data
-kinopois clean --cache      # remove CSVs
-kinopois clean --collages   # remove collage images
-kinopois clean --all        # remove everything
-```
-
-## Google Sheets setup
-
-1. Create a Google Cloud service account with Sheets API access.
-2. Download the JSON key to `credentials/service_account.json`.
-3. Share your spreadsheet with the service account email.
-4. Set `GOOGLE_CREDS_FILE`, `GOOGLE_SHEETS_ID`, `GOOGLE_SHEETS_TAB` in `.env`.
-5. Run `kinopois sync-sheets` — it will create the header row and upsert all pins.
-
-The sync is idempotent: rows are matched by `id`; existing rows are updated,
-new ones are appended.
-
-## Docker deployment
-
-```bash
-docker compose build
-docker compose run --rm kinopois-prepare run-pins --limit 200 --sync-sheets
-
-# Always-on autonomous mode (daily harvest + optional publish slots)
-docker compose up -d kinopois-autopilot
-```
-
-`data/` and `credentials/` are volume-mounted and never baked into the image.
-`logs/` is also mounted for persistent runtime logs.
-
-### Logs (for AI analysis)
-
-```bash
-# Container logs
-docker compose logs --since=24h kinopois-autopilot
-
-# Live stream
-docker compose logs -f kinopois-autopilot
-
-# Cron/one-shot logs
-tail -n 500 data/kinopois-cron.log
-```
-
-### Cron (daily at 09:00)
-
-```bash
-bash deploy/cron-setup.sh
-```
-
-## Project structure
-
-```
-kinopois/
-+-- kinopois/
-|   +-- cli.py            CLI commands (Click)
-|   +-- config.py         Config dataclass, env vars
-|   +-- scraper.py        Kinopoisk.dev API client
-|   +-- processor.py      Clean movies.csv, add primary_genre
-|   +-- export.py         export_movie_pins_csv() and collage exporters
-|   +-- sheets.py         sync_pins_to_sheets() - Google Sheets upsert
-|   +-- collage.py        2x2 collage image builder
-|   +-- marker.py         Watermark overlay
-|   +-- db.py             SQLite publish queue (legacy)
-|   +-- utils.py          read_csv_dict, write_csv_dict, parse_rating
-+-- data/                  (gitignored)
-|   +-- posters/
-|   +-- collages/
-|   +-- cache/
-+-- credentials/           (gitignored) Google service account keys
-+-- deploy/                cron-setup.sh, Dockerfile, docker-compose.yml
-+-- .env.example
-+-- pyproject.toml
-```
-
-## CSV format
-
-All CSVs use semicolon delimiter and UTF-8 BOM encoding.
-
-`pins.csv` columns (20 fields):
-```
-id; image_url; poster_url; title; original_title; year; rating; genres;
-primary_genre; kp_url; source_type; description; keywords; category;
-board; board_id; status; created_at; posted_at; notes
-```
-
-## CLI reference
-
-| Command | Description |
-|---------|-------------|
-| `kinopois run-pins` | Full pin pipeline (download + process + export + optional sync) |
-| `kinopois pins` | Full pin pipeline (download + process + export + optional sync) |
-| `kinopois export-movie-pins` | Re-export pins.csv from existing data |
-| `kinopois sync` | Push pins.csv to Google Sheets |
-| `kinopois reconcile-sheet-statuses` | Normalize empty/invalid `status` in Google Sheets |
-| `kinopois autopilot-once` | Run one autonomous tick (harvest + due slots) |
-| `kinopois autopilot` | Run autonomous daemon forever |
-| `kinopois run-prod` | Full collage pipeline |
-| `kinopois download` | Download movies from Kinopoisk |
-| `kinopois process` | Clean and process movies.csv |
-| `kinopois collage` | Create 2x2 collages |
-| `kinopois mark` | Add watermarks to images |
-| `kinopois info` | Show project info |
-| `kinopois clean` | Remove generated data |
-| `kinopois interactive` | Interactive menu mode |
-
-## n8n integration
-
-Recommended flow in n8n:
-
-1. `kinopois run-pins --limit 200 --sync-sheets` (scheduled, daily)
-2. Google Sheets trigger: new rows with `status = ready`
-3. Pinterest publish node
-4. Update row `status` to `posted`, fill `posted_at` and `notes` (pin URL)
-
-## Development
-
-```bash
-pytest
-black kinopois/
-ruff check kinopois/
-```
-
-## License
-
-MIT
+- [Architecture](docs/architecture.md)
+- [Usage](docs/usage.md)
+- [Deployment](docs/deployment.md)
+- [Data contracts](docs/data-contracts.md)
+- [Project notes](docs/INIT.md)
+- [Historical context](docs/CLAUDE.md)

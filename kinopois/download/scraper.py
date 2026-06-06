@@ -14,7 +14,7 @@ from rich.console import Console
 from rich.progress import track
 
 from kinopois.config import config
-from kinopois.eventlog import log_event
+from kinopois.publishing.eventlog import log_event
 from kinopois.utils import read_csv_dict
 
 console = Console()

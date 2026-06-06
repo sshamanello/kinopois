@@ -10,6 +10,7 @@ from urllib.parse import urlparse
 import requests
 
 from kinopois.config import config
+from kinopois.publishing.eventlog import log_event
 
 
 class PinterestPublishError(RuntimeError):
@@ -48,6 +49,15 @@ def publish_pin(job: Dict[str, Any]) -> str:
     description = str(job.get("description") or "").strip()
     link = str(job.get("link") or config.bot_url or "").strip()
 
+    log_event(
+        "publish_pin_started",
+        job_id=job.get("id"),
+        board_id=board_id,
+        title=title[:120],
+        image_url=image_url,
+        link=link,
+    )
+
     if not image_url:
         raise PinterestPublishError("image_url is empty")
     if not title:
@@ -62,11 +72,23 @@ def publish_pin(job: Dict[str, Any]) -> str:
             "content_type": "image/jpeg",
             "data": base64.b64encode(raw).decode("ascii"),
         }
+        log_event(
+            "publish_pin_image_resolved",
+            job_id=job.get("id"),
+            source_type="image_base64",
+            local_image=str(local_image),
+        )
     else:
         media_source = {
             "source_type": "image_url",
             "url": image_url,
         }
+        log_event(
+            "publish_pin_image_resolved",
+            job_id=job.get("id"),
+            source_type="image_url",
+            image_url=image_url,
+        )
 
     payload = {
         "board_id": board_id,
@@ -89,11 +111,25 @@ def publish_pin(job: Dict[str, Any]) -> str:
 
     if response.status_code >= 300:
         detail = response.text[:1000]
+        log_event(
+            "publish_pin_failed",
+            job_id=job.get("id"),
+            status_code=response.status_code,
+            error=detail[:500],
+        )
         raise PinterestPublishError(f"Pinterest API {response.status_code}: {detail}")
 
     data = response.json() if response.content else {}
     pin_id = str(data.get("id") or "").strip()
     if not pin_id:
+        log_event("publish_pin_failed", job_id=job.get("id"), error="Pinterest response does not contain pin id")
         raise PinterestPublishError("Pinterest response does not contain pin id")
 
+    log_event(
+        "publish_pin_succeeded",
+        job_id=job.get("id"),
+        pin_id=pin_id,
+        board_id=board_id,
+        title=title[:120],
+    )
     return pin_id

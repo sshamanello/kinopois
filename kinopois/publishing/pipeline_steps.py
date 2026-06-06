@@ -13,12 +13,12 @@ import requests
 from rich.console import Console
 
 from kinopois.config import config
-from kinopois.db import get_ready_jobs, mark_failed, mark_posted, sync_pins_csv
-from kinopois.eventlog import log_event
-from kinopois.export import export_movie_pins_csv
-from kinopois.pinterest import publish_pin
-from kinopois.processor import load_movies
-from kinopois.scraper import KinopoiskScraper
+from kinopois.download.scraper import KinopoiskScraper
+from kinopois.processing.processor import load_movies
+from kinopois.publishing.db import get_ready_jobs, mark_failed, mark_posted, sync_pins_csv
+from kinopois.publishing.eventlog import log_event
+from kinopois.publishing.export import export_movie_pins_csv
+from kinopois.publishing.pinterest import publish_pin
 from kinopois.utils import read_csv_dict, write_csv_dict
 
 console = Console()
@@ -225,17 +225,38 @@ def step_queue_sync(pins_csv: Path) -> int:
 
 
 def step_publish(limit: int = 1) -> Dict[str, int]:
+    log_event("step_publish_started", limit=limit)
     jobs = get_ready_jobs(limit=max(1, limit))
     ok = 0
     fail = 0
     for job in jobs:
         try:
+            log_event(
+                "step_publish_job_started",
+                job_id=job.get("id"),
+                board_id=job.get("board_id"),
+                title=str(job.get("title") or "")[:120],
+                image_url=str(job.get("image_url") or ""),
+            )
             pin_id = publish_pin(job)
             mark_posted(job["id"], pin_id)
             ok += 1
+            log_event(
+                "step_publish_job_succeeded",
+                job_id=job.get("id"),
+                pin_id=pin_id,
+                board_id=job.get("board_id"),
+            )
         except Exception as exc:
-            mark_failed(job["id"], str(exc))
+            error_text = str(exc)
+            mark_failed(job["id"], error_text)
+            log_event(
+                "step_publish_job_failed",
+                job_id=job.get("id"),
+                error=error_text[:500],
+            )
             fail += 1
+    log_event("step_publish_completed", attempted=len(jobs), ok=ok, failed=fail)
     return {"ok": ok, "failed": fail, "attempted": len(jobs)}
 
 

@@ -1,0 +1,317 @@
+{
+  "name": "Pinterest",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-64, 144],
+      "id": "7a3d1b34-4701-4b99-8cb8-839a710ea422",
+      "name": "When clicking 'Execute workflow'"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 7,
+              "triggerAtMinute": 15
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-64, 320],
+      "id": "b220e26f-d1ec-4c9f-93cc-b634abaab662",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "documentId": {
+          "__rl": true,
+          "value": "1E7NiTsLSaURmLzq286SvCEuUt5PlEq6kdEy-jE4mjw0",
+          "mode": "list",
+          "cachedResultName": "KinoPinterest",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1E7NiTsLSaURmLzq286SvCEuUt5PlEq6kdEy-jE4mjw0/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "pins",
+          "mode": "name"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "status",
+              "lookupValue": "pending"
+            }
+          ]
+        },
+        "options": {
+          "returnFirstMatch": true
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [200, 240],
+      "id": "3219c278-7cc1-47e3-b4de-be5ba9445b1f",
+      "name": "Get row(s) in sheet",
+      "credentials": {
+        "googleApi": {
+          "id": "Ofs0HJAih2ZMwneg",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "pinBoardId": "1085930597590767480",
+        "pinTitle": "={{ $json.title }}",
+        "pinDescription": "={{ $json.description }}",
+        "pinLink": "={{ $json.kp_url }}",
+        "imageUrl": "={{ $json.image_url }}"
+      },
+      "type": "n8n-nodes-pin-interest.pinInterest",
+      "typeVersion": 1,
+      "position": [460, 240],
+      "id": "021d1c74-9220-465b-8e15-e0072060432d",
+      "name": "Create a pin",
+      "continueOnFail": true,
+      "credentials": {
+        "pinInterestOAuth2Api": {
+          "id": "F0pxjtQAV06pJuzo",
+          "name": "Pin-Interest account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "pin_created",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [700, 240],
+      "id": "if_success",
+      "name": "If Success"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1E7NiTsLSaURmLzq286SvCEuUt5PlEq6kdEy-jE4mjw0",
+          "mode": "list",
+          "cachedResultName": "KinoPinterest",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1E7NiTsLSaURmLzq286SvCEuUt5PlEq6kdEy-jE4mjw0/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "pins",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $('Get row(s) in sheet').item.json.id }}",
+            "status": "posted",
+            "posted_at": "={{ $now }}",
+            "notes": "={{ $json.id }}"
+          },
+          "matchingColumns": ["id"],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "posted_at",
+              "displayName": "posted_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "notes",
+              "displayName": "notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": true,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [940, 140],
+      "id": "cda291f5-d233-4074-9387-31b547578514",
+      "name": "Update row in sheet",
+      "credentials": {
+        "googleApi": {
+          "id": "Ofs0HJAih2ZMwneg",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1E7NiTsLSaURmLzq286SvCEuUt5PlEq6kdEy-jE4mjw0",
+          "mode": "list",
+          "cachedResultName": "KinoPinterest",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1E7NiTsLSaURmLzq286SvCEuUt5PlEq6kdEy-jE4mjw0/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "pins",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $('Get row(s) in sheet').item.json.id }}",
+            "status": "failed",
+            "notes": "={{ $json.error?.message || $json.error || 'unknown error' }}"
+          },
+          "matchingColumns": ["id"],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "notes",
+              "displayName": "notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": true,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [940, 360],
+      "id": "update_failed",
+      "name": "Update row - failed",
+      "credentials": {
+        "googleApi": {
+          "id": "Ofs0HJAih2ZMwneg",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Исправления v3\n- Google Sheets: Service Account везде (не Pinterest OAuth)\n- If Success: проверяет $json.id (Pinterest вернул ID пина) вместо отсутствия error\n- attemptToConvertTypes: true — id матчится как число и как строка\n- notes: записывает Pinterest pin ID для posted, текст ошибки для failed",
+        "height": 180,
+        "width": 360
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [700, 500],
+      "id": "note1",
+      "name": "Sticky Note"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking 'Execute workflow'": {
+      "main": [[{ "node": "Get row(s) in sheet", "type": "main", "index": 0 }]]
+    },
+    "Schedule Trigger": {
+      "main": [[{ "node": "Get row(s) in sheet", "type": "main", "index": 0 }]]
+    },
+    "Get row(s) in sheet": {
+      "main": [[{ "node": "Create a pin", "type": "main", "index": 0 }]]
+    },
+    "Create a pin": {
+      "main": [[{ "node": "If Success", "type": "main", "index": 0 }]]
+    },
+    "If Success": {
+      "main": [
+        [{ "node": "Update row in sheet", "type": "main", "index": 0 }],
+        [{ "node": "Update row - failed", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "224396d9-1ba2-443b-8042-1576f8645529",
+  "meta": {
+    "instanceId": "2b615a4ee9dcb4fb69a3233f53ddc1715da07a2d4a50e08b96754c796cdf17ea"
+  },
+  "id": "3wAWYinprDv5sRul",
+  "tags": []
+}

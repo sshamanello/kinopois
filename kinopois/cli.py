@@ -1,78 +1,104 @@
 """CLI interface for kinopois."""
 
 import shutil
+import sys
 from pathlib import Path
 
-import click
-from rich.console import Console
-from rich.table import Table
-
-from kinopois import __version__
-from kinopois.collage import create_collages
-from kinopois.config import config
-from kinopois.database import Database
-from kinopois.export import export_for_n8n, export_for_n8n_json, export_for_pinterest
-from kinopois.logger import get_logger
-from kinopois.marker import mark_posters
-from kinopois.scraper import KinopoiskScraper
-
-console = Console()
-logger = get_logger()
-
-
-def validate_configuration() -> tuple[bool, list[str]]:
-    """Validate application configuration.
-
-    Returns:
-        Tuple of (is_valid, list of errors).
-    """
-    errors = []
-
-    # Check API key if available
-    if not config.kinopoisk_api_key:
-        errors.append("KINOPOISK_API_KEY is not set")
-
-    # Check directories are writable
+# On Windows cp1251 terminals some movie titles contain characters outside
+# the code page, causing UnicodeEncodeError. Reconfigure stdout to replace
+# unencodable characters with '?' instead of crashing.
+if hasattr(sys.stdout, "reconfigure"):
     try:
-        config.data_dir.mkdir(parents=True, exist_ok=True)
-        test_file = config.data_dir / ".write_test"
-        test_file.touch()
-        test_file.unlink()
-    except Exception as e:
-        errors.append(f"Data directory is not writable: {e}")
-
-    # Check disk space (at least 100 MB)
-    try:
-        import shutil
-        stat = shutil.disk_usage(config.data_dir)
-        free_mb = stat.free / (1024 * 1024)
-        if free_mb < 100:
-            errors.append(f"Low disk space: {free_mb:.1f} MB free (recommended: 100 MB+)")
+        sys.stdout.reconfigure(errors="replace")
     except Exception:
         pass
 
-    return len(errors) == 0, errors
+import click
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+
+from kinopois import __version__
+from kinopois.publishing.autopilot import Autopilot
+from kinopois.processing.collage import create_collages
+from kinopois.config import config
+from kinopois.publishing.export import (
+    export_pinterest_csv,
+    export_simple_collages_csv,
+    export_summary,
+    export_movie_pins_csv,
+)
+from kinopois.publishing.db import (
+    init_db,
+    sync_pins_csv,
+    get_ready_jobs,
+    mark_posted,
+    mark_failed,
+    sync_all_from_csv,
+    db_counts,
+)
+from kinopois.processing.marker import mark_posters, PosterMarker
+from kinopois.publishing.pipeline_steps import run_daily_prepare, step_publish
+from kinopois.processing.processor import load_clean_movies, load_movies
+from kinopois.download.scraper import KinopoiskScraper
+
+try:
+    from kinopois.publishing.sheets import normalize_sheet_statuses as _normalize_sheet_statuses
+    from kinopois.publishing.sheets import sync_upload_fields_to_sheets as _sync_upload_fields_to_sheets
+    from kinopois.publishing.sheets import sync_pins_to_sheets as _sync_sheets
+
+    _SHEETS_AVAILABLE = True
+except ImportError:
+    _SHEETS_AVAILABLE = False
+
+console = Console()
 
 
-@click.group(invoke_without_command=True)
-@click.version_option(version=__version__)
+def print_error(message: str, hint: str = "") -> None:
+    """Print user-friendly error message."""
+    console.print(
+        Panel(f"[red]{message}[/red]", title="[bold red]Error[/bold red]", border_style="red")
+    )
+    if hint:
+        console.print(f"[dim]{hint}[/dim]")
+
+
+def print_success(message: str) -> None:
+    """Print success message."""
+    console.print(f"[green]✓[/green] {message}")
+
+
+def print_info(message: str) -> None:
+    """Print info message."""
+    console.print(f"[cyan]ℹ[/cyan] {message}")
+
+
+def print_step(step: int, total: int, message: str) -> None:
+    """Print pipeline step."""
+    console.print(f"\n[bold cyan]Step {step}/{total}:[/bold cyan] {message}")
+
+
+@click.group(invoke_without_command=True, context_settings=dict(help_option_names=["-h", "--help"]))
+@click.version_option(version=__version__, prog_name="kinopois")
 @click.option(
     "--api-key",
     envvar="KINOPOISK_API_KEY",
-    help="Kinopoisk.dev API key",
+    help="Kinopoisk API key (or set KINOPOISK_API_KEY in .env)",
 )
 @click.option(
     "--data-dir",
     type=click.Path(exists=True, path_type=Path),
-    help="Data directory path",
+    help="Data directory (default: ./data)",
 )
 @click.pass_context
 def main(ctx, api_key, data_dir):
-    """Kinopoisk poster downloader and collage creator CLI.
+    """Download movie posters from Kinopoisk and create Pinterest-ready pins.
 
-    Download movie posters from Kinopoisk and create beautiful collages.
+    Quick start:
 
-    Without arguments, launches interactive menu mode.
+    [cyan]kinopois[/cyan]              Interactive menu
+    [cyan]kinopois pins[/cyan]          Download movies and create Pinterest pins
+    [cyan]kinopois pins --sync-sheets[/cyan]  Download + push to Google Sheets
     """
     ctx.ensure_object(dict)
 
@@ -82,12 +108,20 @@ def main(ctx, api_key, data_dir):
     if data_dir:
         config.data_dir = data_dir
         config.posters_dir = data_dir / "posters"
+        config.framed_source_posters_dir = data_dir / "posters_clean"
+        config.framed_posters_dir = data_dir / "posters_framed"
         config.collages_dir = data_dir / "collages"
         config.cache_dir = data_dir / "cache"
+        config.posters_dir.mkdir(parents=True, exist_ok=True)
+        config.framed_source_posters_dir.mkdir(parents=True, exist_ok=True)
+        config.framed_posters_dir.mkdir(parents=True, exist_ok=True)
+        config.collages_dir.mkdir(parents=True, exist_ok=True)
+        config.cache_dir.mkdir(parents=True, exist_ok=True)
 
     # If no subcommand, launch interactive mode
     if ctx.invoked_subcommand is None:
         from kinopois.interactive import interactive as run_interactive
+
         run_interactive()
 
 
@@ -95,78 +129,135 @@ def main(ctx, api_key, data_dir):
 @click.option(
     "--limit",
     default=200,
-    help="Number of movies to download",
+    help="How many movies to download (default: 200)",
 )
 @click.option(
-    "--resume",
-    is_flag=True,
-    help="Resume from previous progress",
+    "--output",
+    type=click.Path(path_type=Path),
+    help="Save movies to file (default: data/cache/movies.csv)",
 )
 @click.option(
-    "--dry-run",
+    "--replace",
     is_flag=True,
-    help="Show what would be downloaded without actually downloading",
+    help="Replace output CSV instead of append-only mode (not recommended for prod)",
 )
 @click.pass_context
-def download(ctx, limit, resume, dry_run):
-    """Download movie posters from Kinopoisk to database."""
+def download(ctx, limit, output, replace):
+    """Download movie posters from Kinopoisk.
+
+    Downloads movie posters and metadata from Kinopoisk.dev API.
+    By default works in append-only mode and skips existing kp_id values.
+    Use --replace only when you intentionally want to rebuild movies.csv.
+
+    Example:
+
+        kinopois download --limit 100
+    """
     if not config.kinopoisk_api_key:
-        console.print("[red]Error: KINOPOISK_API_KEY is required[/red]")
-        console.print("Set it via --api-key option or KINOPOISK_API_KEY env var")
+        print_error(
+            "API key is required",
+            "Run: kinopois download --api-key YOUR_KEY\nOr add KINOPOISK_API_KEY to your .env file",
+        )
         raise click.Abort()
-
-    # Validate configuration
-    is_valid, errors = validate_configuration()
-    if not is_valid:
-        console.print("[red]Configuration errors:[/red]")
-        for error in errors:
-            console.print(f"  - {error}")
-        if not config.kinopoisk_api_key:
-            console.print("\n[yellow]Warning: API key not set, but continuing anyway...[/yellow]")
-
-    if dry_run:
-        console.print(f"[yellow][DRY RUN] Would download {limit} movies from Kinopoisk...[/yellow]")
-        console.print(f"[yellow]Resume: {resume}[/yellow]")
-        return
 
     console.print(f"[cyan]Downloading {limit} movies from Kinopoisk...[/cyan]")
 
     scraper = KinopoiskScraper(config.kinopoisk_api_key)
-    count = scraper.download_and_save(limit=limit, resume=resume)
+    output_path = scraper.download_and_save(output_csv=output, limit=limit, append_mode=not replace)
 
-    console.print(f"[green]OK Downloaded {count} movies to database[/green]")
+    print_success(f"Downloaded to {output_path}")
 
 
 @main.command()
 @click.option(
+    "--input",
+    type=click.Path(exists=True, path_type=Path),
+    help="Source CSV file (default: data/cache/movies.csv)",
+)
+@click.option(
+    "--output",
+    type=click.Path(path_type=Path),
+    help="Save cleaned data to (default: data/cache/movies_clean.csv)",
+)
+@click.pass_context
+def process(ctx, input, output):
+    """Clean movie data and add primary genre.
+
+    Reads movies.csv, removes invalid entries, and adds the primary genre
+    (first genre from the list) for each movie.
+
+    Example:
+
+        kinopois process
+    """
+    input_path = input or config.cache_dir / "movies.csv"
+    output_path = output or config.cache_dir / "movies_clean.csv"
+
+    if not input_path.exists():
+        print_error(
+            f"File not found: {input_path}", "Run 'kinopois download' first to create movies.csv"
+        )
+        raise click.Abort()
+
+    console.print(f"[cyan]Processing {input_path}...[/cyan]")
+
+    processor = load_movies(input_path)
+    processor.clean(output_path)
+
+    print_success(f"Cleaned data saved to {output_path}")
+
+
+@main.command()
+@click.option(
+    "--input",
+    type=click.Path(exists=True, path_type=Path),
+    help="Movies CSV file (default: data/cache/movies_clean.csv)",
+)
+@click.option(
+    "--output-dir",
+    type=click.Path(path_type=Path),
+    help="Save collages to folder (default: data/collages/)",
+)
+@click.option(
     "--watermark",
-    help="Watermark text to overlay",
+    help="Text watermark to add (e.g. @YourBot)",
 )
 @click.option(
     "--max-per-genre",
     type=int,
-    help="Maximum collages per genre",
-)
-@click.option(
-    "--dry-run",
-    is_flag=True,
-    help="Show what would be created without actually creating files",
+    help="How many collages per genre (default: unlimited)",
 )
 @click.pass_context
-def collage(ctx, watermark, max_per_genre, dry_run):
-    """Create 2x2 collages from movies in database."""
-    if dry_run:
-        console.print("[yellow][DRY RUN] Simulating collage creation...[/yellow]")
+def collage(ctx, input, output_dir, watermark, max_per_genre):
+    """Create 2x2 poster collages grouped by genre.
+
+    Combines 4 movie posters into one image, grouped by genre.
+    Perfect for Pinterest boards.
+
+    Examples:
+
+        kinopois collage
+        kinopois collage --watermark "@MyChannel" --max-per-genre 2
+    """
+    input_path = input or config.cache_dir / "movies_clean.csv"
+
+    if not input_path.exists():
+        print_error(
+            f"File not found: {input_path}",
+            "Run 'kinopois process' first to create movies_clean.csv",
+        )
+        raise click.Abort()
 
     console.print("[cyan]Creating collages...[/cyan]")
 
-    count = create_collages(
+    output_csv = create_collages(
+        input_csv=input_path,
+        output_dir=output_dir,
         watermark=watermark,
         max_per_genre=max_per_genre,
-        dry_run=dry_run,
     )
 
-    console.print(f"[green]OK {'[DRY RUN] Would create' if dry_run else 'Created'} {count} collages[/green]")
+    print_success(f"Collages created: {output_csv}")
 
 
 @main.command()
@@ -174,37 +265,33 @@ def collage(ctx, watermark, max_per_genre, dry_run):
 @click.option(
     "--output-dir",
     type=click.Path(path_type=Path),
-    help="Output directory (default: overwrites input)",
+    help="Save to folder (default: overwrites original files)",
 )
 @click.option(
     "--text",
-    help="Watermark text",
+    help="Watermark text to overlay (default: @TopTrailer82Bot)",
 )
 @click.option(
     "--position",
     type=click.Choice(["top", "bottom", "corner"]),
     default="bottom",
-    help="Watermark position",
-)
-@click.option(
-    "--dry-run",
-    is_flag=True,
-    help="Show what would be marked without actually marking",
+    help="Where to place watermark",
 )
 @click.pass_context
-def mark(ctx, input_dir, output_dir, text, position, dry_run):
-    """Add watermark to poster images."""
-    if dry_run:
-        watermark = text or config.watermark_text
-        console.print(f"[yellow][DRY RUN] Would mark posters in {input_dir}[/yellow]")
-        console.print(f"Watermark: '{watermark}' at {position}")
-        console.print(f"Output: {output_dir or input_dir}")
-        return
+def mark(ctx, input_dir, output_dir, text, position):
+    """Add watermark text to poster images.
 
+    Overlays custom text on movie poster images.
+
+    Examples:
+
+        kinopois mark data/posters --text "@MyChannel"
+        kinopois mark data/posters --text "@Bot" --position corner
+    """
     watermark = text or config.watermark_text
 
-    console.print(f"[cyan]Marking posters in {input_dir}...[/cyan]")
-    console.print(f"Watermark: '{watermark}' at {position}")
+    console.print(f"[cyan]Adding watermark to images in {input_dir}...[/cyan]")
+    console.print(f"[dim]Text: '{watermark}' at {position}[/dim]")
 
     marked = mark_posters(
         input_dir=input_dir,
@@ -213,326 +300,612 @@ def mark(ctx, input_dir, output_dir, text, position, dry_run):
         output_dir=output_dir,
     )
 
-    console.print(f"[green]OK Marked {marked} posters[/green]")
+    print_success(f"Marked {marked} images")
 
 
 @main.command()
 @click.option(
+    "--input",
+    type=click.Path(exists=True, path_type=Path),
+    help="Collages CSV file (default: data/cache/collages.csv)",
+)
+@click.option(
     "--format",
-    type=click.Choice(["pinterest", "n8n", "n8n-json", "simple", "summary"]),
+    type=click.Choice(["pinterest", "simple", "summary"]),
     default="pinterest",
-    help="Export format",
+    help="Export format (pinterest = full data, simple = basic, summary = overview)",
 )
 @click.option(
     "--output",
     type=click.Path(path_type=Path),
-    help="Output file path",
+    help="Save output to file",
 )
 @click.pass_context
-def export(ctx, format, output):
-    """Export collages from database to various formats."""
-    console.print(f"[cyan]Exporting collages as {format}...[/cyan]")
+def export(ctx, input, format, output):
+    """Export collage metadata to CSV files.
 
-    with Database() as db:
-        if format == "summary":
-            stats = db.get_stats()
-            console.print("\n[bold]Database Statistics:[/bold]")
-            console.print(f"  Movies: {stats['movies']}")
-            console.print(f"  Collages: {stats['collages']}")
-            if stats.get('total_collages_size_bytes'):
-                from kinopois.collage import format_file_size
-                size_str = format_file_size(stats['total_collages_size_bytes'])
-                console.print(f"  Total collages size: {size_str}")
-            if stats['by_genre']:
-                console.print("\n  [bold]By Genre:[/bold]")
-                for genre, count in list(stats['by_genre'].items())[:10]:
-                    console.print(f"    {genre}: {count}")
-        elif format == "pinterest":
-            export_for_pinterest(db, output)
-        elif format == "n8n":
-            export_for_n8n(db, output)
-        elif format == "n8n-json":
-            export_for_n8n_json(db, output)
-        else:  # simple
-            collages = db.get_collages()
-            if output:
-                with open(output, "w", encoding="utf-8") as f:
-                    f.write("genre;collage_file;link\n")
-                    for c in collages:
-                        f.write(f"{c.genre};{c.collage_file};{config.bot_url}\n")
-                console.print(f"[green]OK Exported {len(collages)} collages to {output}[/green]")
-            else:
-                console.print("[yellow]Please specify --output path for simple format[/yellow]")
+    Creates CSV files with collage information for different purposes.
 
-    console.print("[green]OK Export complete[/green]")
+    Examples:
+
+        kinopois export
+        kinopois export --format pinterest --output my_pins.csv
+    """
+    if format == "summary":
+        collages_csv = input or config.cache_dir / "collages.csv"
+        movies_csv = config.cache_dir / "movies_clean.csv"
+        export_summary(collages_csv, movies_csv, output)
+    elif format == "pinterest":
+        input_csv = input or config.cache_dir / "collages.csv"
+        export_pinterest_csv(input_csv, output)
+    else:
+        input_csv = input or config.cache_dir / "collages.csv"
+        export_simple_collages_csv(input_csv, output)
+
+    print_success("Export complete")
 
 
 @main.command()
 @click.option(
     "--all",
+    "run_all",
     is_flag=True,
-    help="Run full pipeline: download -> collage -> export",
+    help="Run full pipeline: download -> process -> collage -> export",
 )
 @click.option(
     "--limit",
     default=200,
-    help="Number of movies to download",
+    help="How many movies to download (default: 200)",
 )
 @click.option(
     "--skip-download",
     is_flag=True,
-    help="Skip download step (use existing data)",
-)
-@click.option(
-    "--dry-run",
-    is_flag=True,
-    help="Show what would be done without actually doing it",
+    help="Skip downloading (use existing movies.csv)",
 )
 @click.pass_context
-def run(ctx, all, limit, skip_download, dry_run):
-    """Run the full workflow or individual steps."""
-    if not all:
-        console.print("[yellow]Use --all flag to run full pipeline[/yellow]")
-        console.print("Or run individual commands: download, collage, export")
+def run(ctx, run_all, limit, skip_download):
+    """Run the full workflow or individual steps.
+
+    This is the main command for creating Pinterest-ready content.
+
+    Examples:
+
+        kinopois run --all --limit 100    Download and process movies
+        kinopois download --limit 50       Download only
+        kinopois process                  Clean data only
+    """
+    if not run_all:
+        console.print("[bold]Kinopois - Movie Poster Downloader[/bold]")
+        console.print("")
+        console.print("Quick commands:")
+        console.print("  [cyan]kinopois pins[/cyan]           Download movies and create pins")
+        console.print("  [cyan]kinopois collage[/cyan]        Create poster collages")
+        console.print("  [cyan]kinopois download[/cyan]       Download posters only")
+        console.print("  [cyan]kinopois process[/cyan]         Clean movie data")
+        console.print("  [cyan]kinopois sync[/cyan]           Push pins to Google Sheets")
+        console.print("")
+        console.print("Run 'kinopois --help' for all commands")
         return
 
-    if not config.kinopoisk_api_key and not skip_download and not dry_run:
-        console.print("[red]Error: KINOPOISK_API_KEY is required for download[/red]")
+    if not config.kinopoisk_api_key and not skip_download:
+        print_error(
+            "API key is required for download",
+            "Run: kinopois --all --api-key YOUR_KEY\nOr add KINOPOISK_API_KEY to .env file",
+        )
         raise click.Abort()
 
-    if dry_run:
-        console.print("[yellow][DRY RUN] Simulating full pipeline...[/yellow]")
+    console.print("[bold cyan]Starting full pipeline...[/bold cyan]")
 
-    console.print("[cyan]Starting full pipeline...[/cyan]")
-
-    # Download
     if not skip_download:
-        console.print("\n[bold]Step 1: Download[/bold]")
-        ctx.invoke(download, limit=limit, dry_run=dry_run)
+        print_step(1, 4, "Download movies from Kinopoisk")
+        ctx.invoke(download, limit=limit)
+    else:
+        print_step(1, 4, "Download (skipped - using existing data)")
 
-    # Create collages
-    console.print("\n[bold]Step 2: Create collages[/bold]")
-    ctx.invoke(collage, dry_run=dry_run)
+    print_step(2, 4, "Clean and process movie data")
+    ctx.invoke(process)
 
-    # Export
-    console.print("\n[bold]Step 3: Export[/bold]")
-    ctx.invoke(export, format="n8n-json")
+    print_step(3, 4, "Create 2x2 poster collages")
+    ctx.invoke(collage)
 
-    console.print(f"\n[green]OK {'[DRY RUN] Pipeline simulated' if dry_run else 'Pipeline complete'}![/green]")
+    print_step(4, 4, "Export to CSV")
+    ctx.invoke(export, format="pinterest")
+
+    console.print("\n[green]✓ Pipeline complete![/green]")
+
+
+@main.command("run-prod")
+@click.option("--limit", default=200, help="How many movies to download (default: 200)")
+@click.option("--skip-download", is_flag=True, help="Skip downloading (use existing data)")
+@click.option("--watermark-text", default="", help="Watermark text (empty = no watermark)")
+@click.option("--max-per-genre", default=1, type=int, help="Collages per genre (1 = 4 best movies)")
+@click.pass_context
+def run_prod(ctx, limit, skip_download, watermark_text, max_per_genre):
+    """Production pipeline: download -> process -> collage -> export -> sync DB.
+
+    Creates collage pipeline for Pinterest publishing.
+
+    Example:
+
+        kinopois run-prod --limit 100 --watermark-text "@MyChannel"
+    """
+    if not config.kinopoisk_api_key and not skip_download:
+        print_error("API key is required for download", "Run: kinopois run-prod --api-key YOUR_KEY")
+        raise click.Abort()
+
+    console.print("[bold cyan]Starting production pipeline...[/bold cyan]")
+
+    if not skip_download:
+        print_step(1, 5, "Download movies from Kinopoisk")
+        ctx.invoke(download, limit=limit)
+    else:
+        print_step(1, 5, "Download (skipped)")
+
+    print_step(2, 5, "Clean and process movie data")
+    ctx.invoke(process)
+
+    print_step(3, 5, "Create 2x2 collages (4 titles per category)")
+    collage_kwargs = {"max_per_genre": max_per_genre}
+    if (watermark_text or "").strip():
+        collage_kwargs["watermark"] = watermark_text.strip()
+    ctx.invoke(collage, **collage_kwargs)
+
+    print_step(4, 5, "Export collage data to CSV")
+    ctx.invoke(export, format="pinterest")
+
+    print_step(5, 5, "Sync to database")
+    synced = sync_all_from_csv(config.cache_dir)
+    counts = db_counts()
+    console.print(f"[cyan]DB synced:[/cyan] {synced}")
+    console.print(f"[cyan]DB counts:[/cyan] {counts}")
+
+    print_success("Production pipeline complete")
 
 
 @main.command()
 @click.option(
-    "--db",
+    "--cache",
     is_flag=True,
-    help="Clean database",
+    help="Remove CSV files (movies.csv, pins.csv, etc.)",
 )
 @click.option(
     "--collages",
     is_flag=True,
-    help="Clean collages directory",
+    help="Remove collage images",
 )
 @click.option(
     "--posters",
     is_flag=True,
-    help="Clean posters directory",
+    help="Remove downloaded poster images",
 )
 @click.option(
     "--all",
     is_flag=True,
-    help="Clean all generated data",
-)
-@click.option(
-    "--dry-run",
-    is_flag=True,
-    help="Show what would be cleaned without actually cleaning",
+    help="Remove all generated data (cache, collages, posters)",
 )
 @click.pass_context
-def clean(ctx, db, collages, posters, all, dry_run):
-    """Clean generated data."""
+def clean(ctx, cache, collages, posters, all):
+    """Remove generated data to start fresh.
+
+    Examples:
+
+        kinopois clean --cache          Remove CSV files
+        kinopois clean --collages       Remove collage images
+        kinopois clean --all            Remove everything
+    """
     targets = []
 
     if all:
-        if (config.data_dir / "kinopois.db").exists():
-            targets.append("db")
-        targets.extend(["collages", "posters"])
+        targets.extend([config.cache_dir, config.collages_dir, config.posters_dir])
     else:
-        if db:
-            targets.append("db")
+        if cache:
+            targets.append(config.cache_dir)
         if collages:
-            targets.append("collages")
+            targets.append(config.collages_dir)
         if posters:
-            targets.append("posters")
+            targets.append(config.posters_dir)
 
     if not targets:
-        console.print("[yellow]Nothing to clean. Use --db, --collages, --posters, or --all[/yellow]")
-        return
-
-    if dry_run:
-        console.print("[yellow][DRY RUN] Would clean the following:[/yellow]")
-        for target in targets:
-            console.print(f"  - {target}")
+        console.print("[yellow]Specify what to clean:[/yellow]")
+        console.print("  --cache      Remove CSV files (movies.csv, pins.csv)")
+        console.print("  --collages   Remove collage images")
+        console.print("  --posters    Remove poster images")
+        console.print("  --all        Remove everything")
         return
 
     for target in targets:
-        if target == "db":
-            db_path = config.data_dir / "kinopois.db"
-            if db_path.exists():
-                db_path.unlink()
-                console.print(f"[cyan]Removed: {db_path}[/cyan]")
-        elif target == "collages":
-            if config.collages_dir.exists():
-                shutil.rmtree(config.collages_dir)
-                config.collages_dir.mkdir(parents=True, exist_ok=True)
-                console.print(f"[cyan]Cleared: {config.collages_dir}[/cyan]")
-        elif target == "posters":
-            if config.posters_dir.exists():
-                shutil.rmtree(config.posters_dir)
-                config.posters_dir.mkdir(parents=True, exist_ok=True)
-                console.print(f"[cyan]Cleared: {config.posters_dir}[/cyan]")
+        if target.exists():
+            shutil.rmtree(target)
+            console.print(f"[cyan]Removed: {target}[/cyan]")
 
-    console.print("[green]OK Clean complete[/green]")
+    print_success("Clean complete")
 
 
 @main.command()
 @click.pass_context
 def info(ctx):
-    """Show project information and database statistics."""
-    console.print(f"[bold cyan]Kinopoisk Poster Downloader[/bold cyan]")
-    console.print(f"Version: {__version__}")
+    """Show project status and file counts.
+
+    Displays configuration and statistics about downloaded data.
+
+    Example:
+
+        kinopois info
+    """
+    table = Table(title="Kinopois Status", show_header=False)
+    table.add_column("Item", style="cyan")
+    table.add_column("Value", style="white")
+
+    table.add_row("Version", __version__)
+    table.add_row("Data directory", str(config.data_dir))
+    table.add_row("API key", "Set" if config.kinopoisk_api_key else "[yellow]Not set[/yellow]")
+
+    console.print(table)
     console.print("")
 
-    # Configuration
-    console.print("[bold]Configuration:[/bold]")
-    console.print(f"  Data dir:      {config.data_dir}")
-    console.print(f"  Posters dir:   {config.posters_dir}")
-    console.print(f"  Collages dir:  {config.collages_dir}")
-    console.print(f"  Database:      {config.data_dir / 'kinopois.db'}")
-    console.print(f"  Log file:      {config.data_dir / 'kinopois.log'}")
-    console.print("")
+    posters_count = (
+        len(list(config.posters_dir.glob("*.jpg"))) if config.posters_dir.exists() else 0
+    )
+    collages_count = (
+        len(list(config.collages_dir.glob("*.jpg"))) if config.collages_dir.exists() else 0
+    )
 
-    # File counts
-    posters_count = len(list(config.posters_dir.glob("*.jpg"))) if config.posters_dir.exists() else 0
-    collages_count = len(list(config.collages_dir.glob("*.jpg"))) if config.collages_dir.exists() else 0
+    table2 = Table(title="Files", show_header=True)
+    table2.add_column("Type", style="cyan")
+    table2.add_column("Count", style="white")
+    table2.add_column("Location", style="dim")
 
-    console.print("[bold]Files:[/bold]")
-    console.print(f"  Posters:       {posters_count} files")
-    console.print(f"  Collages:      {collages_count} files")
-    console.print("")
+    table2.add_row("Posters", str(posters_count), str(config.posters_dir))
+    table2.add_row("Collages", str(collages_count), str(config.collages_dir))
 
-    # Database stats
-    db_path = config.data_dir / "kinopois.db"
-    if db_path.exists():
-        with Database() as db:
-            stats = db.get_stats()
-            console.print("[bold]Database:[/bold]")
-            console.print(f"  Movies:       {stats['movies']}")
-            console.print(f"  Collages:      {stats['collages']}")
+    if config.cache_dir.exists():
+        for csv_file in ["movies.csv", "movies_clean.csv", "collages.csv", "pins.csv"]:
+            path = config.cache_dir / csv_file
+            if path.exists():
+                size_kb = path.stat().st_size // 1024
+                table2.add_row(csv_file, f"{size_kb} KB", str(path))
 
-            if stats['by_genre']:
-                console.print("")
-                console.print("  [bold]Movies by genre:[/bold]")
-                for genre, count in list(stats['by_genre'].items())[:5]:
-                    console.print(f"    {genre}: {count}")
-                if len(stats['by_genre']) > 5:
-                    console.print(f"    ... and {len(stats['by_genre']) - 5} more")
-    else:
-        console.print("[yellow]Database not found. Run 'download' first.[/yellow]")
+    console.print(table2)
 
 
-@main.command()
+@main.command("db-init")
+def db_init_cmd():
+    """Initialize SQLite database for publish queue."""
+    path = init_db()
+    console.print(f"[green]DB initialized: {path}[/green]")
+
+
+@main.command("db-sync-all")
+def db_sync_all_cmd():
+    """Sync all CSV artifacts into SQLite (movies_raw, movies_clean, collages, publish_jobs)."""
+    out = sync_all_from_csv(config.cache_dir)
+    counts = db_counts()
+    console.print(f"[green]Synced from CSV -> DB: {out}[/green]")
+    console.print(f"[cyan]DB counts:[/cyan] {counts}")
+
+
+@main.command("db-stats")
+def db_stats_cmd():
+    """Show current DB counts for pipeline and publish queue."""
+    counts = db_counts()
+    console.print(f"[cyan]DB counts:[/cyan] {counts}")
+
+
+@main.command("queue-sync")
+@click.option(
+    "--pins-csv",
+    type=click.Path(exists=True, path_type=Path),
+    help="Pins CSV path (default: data/cache/pins.csv)",
+)
+def queue_sync_cmd(pins_csv):
+    """Import/export pins.csv rows into SQLite queue with dedupe."""
+    csv_path = pins_csv or (config.cache_dir / "pins.csv")
+    if not csv_path.exists():
+        console.print(f"[red]Error: pins csv not found: {csv_path}[/red]")
+        raise click.Abort()
+    inserted = sync_pins_csv(csv_path)
+    console.print(f"[green]Queue synced, inserted: {inserted}[/green]")
+
+
+@main.command("queue-ready")
+@click.option("--limit", default=20, type=int, help="How many ready jobs to show")
+def queue_ready_cmd(limit):
+    """Print ready jobs as JSON (for n8n Execute Command node)."""
+    import json
+
+    rows = get_ready_jobs(limit=limit)
+    click.echo(json.dumps(rows, ensure_ascii=False))
+
+
+@main.command("queue-posted")
+@click.option("--job-id", required=True, type=int, help="Queue job id")
+@click.option("--pin-id", required=True, help="Pinterest pin id")
+def queue_posted_cmd(job_id, pin_id):
+    """Mark queue job as posted."""
+    mark_posted(job_id, pin_id)
+    console.print(f"[green]Job {job_id} marked posted[/green]")
+
+
+@main.command("queue-failed")
+@click.option("--job-id", required=True, type=int, help="Queue job id")
+@click.option("--error", required=True, help="Error message")
+def queue_failed_cmd(job_id, error):
+    """Mark queue job as failed and increment retries."""
+    mark_failed(job_id, error)
+    console.print(f"[yellow]WARNING: Job {job_id} marked failed[/yellow]")
+
+
+@main.command("pins")
+@click.option("--limit", default=200, type=int, help="How many movies to download (default: 200)")
+@click.option("--skip-download", is_flag=True, help="Skip downloading (use existing movies.csv)")
+@click.option(
+    "--skip-process", is_flag=True, help="Skip processing (use existing movies_clean.csv)"
+)
+@click.option("--sync-queue", is_flag=True, help="Also sync to SQLite database")
+@click.option(
+    "--sync-sheets", is_flag=True, help="Push pins to Google Sheets (requires GOOGLE_SHEETS_ID)"
+)
 @click.pass_context
-def status(ctx):
-    """Show current status with statistics and recommendations."""
-    console.print(f"[bold cyan]Kinopoisk Status[/bold cyan]")
-    console.print("")
+def run_pins_cmd(ctx, limit, skip_download, skip_process, sync_queue, sync_sheets):
+    """Download movies and create Pinterest-ready pins.
 
-    # Configuration validation
-    is_valid, errors = validate_configuration()
-    console.print("[bold]Configuration:[/bold]")
-    if is_valid:
-        console.print("  [green]✓[/green] Configuration is valid")
+    This is the main command for the pin pipeline:
+    1. Download movie posters from Kinopoisk
+    2. Clean data and add genres
+    3. Export to pins.csv
+
+    Use --sync-sheets to automatically push to Google Sheets for n8n/Pinterest automation.
+
+    Examples:
+
+        kinopois pins                          Download 200 movies and create pins
+        kinopois pins --limit 100              Download only 100 movies
+        kinopois pins --sync-sheets            Download and push to Google Sheets
+        kinopois pins --skip-download          Create pins from existing data
+    """
+    if not config.kinopoisk_api_key and not skip_download:
+        print_error(
+            "API key is required",
+            "Run: kinopois pins --api-key YOUR_KEY\nOr add KINOPOISK_API_KEY to .env file",
+        )
+        raise click.Abort()
+
+    console.print("[bold cyan]Creating Pinterest pins...[/bold cyan]")
+
+    if not skip_download:
+        print_step(1, 3, f"Download movies from Kinopoisk ({limit} max)")
+        ctx.invoke(download, limit=limit)
     else:
-        console.print("  [red]✗[/red] Configuration has errors:")
-        for error in errors:
-            console.print(f"    [red]•[/red] {error}")
-    console.print("")
+        print_step(1, 3, "Download (skipped - using existing data)")
 
-    # Database stats
-    db_path = config.data_dir / "kinopois.db"
-    if db_path.exists():
-        with Database() as db:
-            stats = db.get_stats()
-
-            console.print("[bold]Database Statistics:[/bold]")
-            console.print(f"  Movies:       {stats['movies']}")
-            console.print(f"  Collages:      {stats['collages']}")
-
-            if stats.get('total_collages_size_bytes'):
-                from kinopois.collage import format_file_size
-                size_str = format_file_size(stats['total_collages_size_bytes'])
-                console.print(f"  Total size:    {size_str}")
-
-            # Movies by genre
-            if stats['by_genre']:
-                console.print("")
-                console.print("  [bold]Movies by Genre:[/bold]")
-                for genre, count in list(stats['by_genre'].items())[:8]:
-                    # Show progress bar
-                    bar_length = int(count / 5)  # Scale: 20 chars = 100 movies
-                    bar = "█" * min(bar_length, 20)
-                    console.print(f"    {genre:15} {count:3} [{bar:20}]")
-                if len(stats['by_genre']) > 8:
-                    console.print(f"    ... and {len(stats['by_genre']) - 8} more")
-
-            # Recommendations
-            console.print("")
-            console.print("[bold]Recommendations:[/bold]")
-            recommendations = db.get_recommendations()
-            if recommendations:
-                for i, rec in enumerate(recommendations[:5], 1):
-                    console.print(f"  {i}. {rec}")
-                if len(recommendations) > 5:
-                    console.print(f"  ... and {len(recommendations) - 5} more")
-            else:
-                console.print("  [green]✓[/green] Everything looks good!")
-
+    if not skip_process:
+        print_step(2, 3, "Clean data and add genres")
+        ctx.invoke(process)
     else:
-        console.print("[yellow]Database not found.[/yellow]")
-        console.print("")
-        console.print("[bold]Recommended Actions:[/bold]")
-        console.print("  1. Set KINOPOISK_API_KEY environment variable")
-        console.print("  2. Run: kinopois download --limit 200")
+        print_step(2, 3, "Process (skipped)")
 
-    # Logger stats
-    log_stats = logger.get_stats()
-    if log_stats.get("last_operation"):
-        console.print("")
-        console.print("[bold]Last Operation:[/bold]")
-        console.print(f"  Operation:    {log_stats['last_operation']}")
-        if log_stats.get("last_update"):
-            from datetime import datetime
+    print_step(3, 3, "Export poster pins to CSV")
+    ctx.invoke(export_movie_pins_cmd)
+
+    if sync_queue:
+        console.print("\n[cyan]Syncing to database...[/cyan]")
+        pins_path = config.cache_dir / "pins.csv"
+        inserted = sync_pins_csv(pins_path)
+        counts = db_counts()
+        console.print(f"[green]DB synced, inserted: {inserted}[/green]")
+        console.print(f"[cyan]DB counts:[/cyan] {counts}")
+
+    if sync_sheets:
+        if not _SHEETS_AVAILABLE:
+            console.print(
+                "[yellow]Warning: Google Sheets sync not available (gspread not installed)[/yellow]"
+            )
+        elif not config.google_sheets_id:
+            console.print("[yellow]Warning: GOOGLE_SHEETS_ID not set in .env[/yellow]")
+        else:
+            console.print("\n[cyan]Syncing to Google Sheets...[/cyan]")
             try:
-                dt = datetime.fromisoformat(log_stats['last_update'])
-                console.print(f"  Time:         {dt.strftime('%Y-%m-%d %H:%M:%S')}")
-            except:
-                pass
+                stats = _sync_sheets()
+                console.print(f"[green]Sheets synced: {stats.get('total', 0)} rows[/green]")
+            except Exception as e:
+                console.print(f"[red]Sheets sync failed: {e}[/red]")
 
-    # Recent errors
-    console.print("")
-    console.print("[bold]Recent Activity:[/bold]")
-    recent_errors = logger.get_recent_errors(5)
-    if recent_errors:
-        console.print(f"  [yellow]Recent errors ({len(recent_errors)}):[/yellow]")
-        for error in recent_errors[-3:]:
-            # Extract just the message part
-            if "| ERROR     |" in error:
-                msg = error.split("| ERROR     |")[-1].strip()
-                console.print(f"    • {msg[:80]}...")
-    else:
-        console.print("  [green]✓[/green] No recent errors")
+    console.print("\n[green]✓ Done![/green]")
+    console.print(f"[cyan]Pins saved to:[/cyan] {config.cache_dir / 'pins.csv'}")
 
-    console.print("")
+
+@main.command("export-movie-pins")
+@click.option(
+    "--input",
+    "input_csv",
+    type=click.Path(exists=True, path_type=Path),
+    help="Source CSV file (default: data/cache/movies_clean.csv)",
+)
+@click.option(
+    "--output",
+    "output_csv",
+    type=click.Path(path_type=Path),
+    help="Output pins CSV (default: data/cache/pins.csv)",
+)
+@click.option(
+    "--limit",
+    default=0,
+    type=int,
+    help="Maximum pins to export (0 = all)",
+)
+def export_movie_pins_cmd(input_csv, output_csv, limit):
+    """Export movie posters as Pinterest pins CSV.
+
+    Converts movie data into Pinterest-ready pin rows with titles,
+    descriptions, keywords, and board assignments.
+
+    Example:
+
+        kinopois export-movie-pins
+        kinopois export-movie-pins --limit 50
+    """
+    input_path = input_csv or config.cache_dir / "movies_clean.csv"
+    if not input_path.exists():
+        print_error(
+            f"File not found: {input_path}",
+            "Run 'kinopois process' first to create movies_clean.csv",
+        )
+        raise click.Abort()
+
+    output_path = export_movie_pins_csv(
+        input_csv=input_path,
+        output_csv=output_csv,
+        limit=limit or None,
+    )
+    print_success(f"Pins exported to {output_path}")
+
+
+@main.command("sync")
+@click.option(
+    "--csv",
+    "csv_path",
+    default=None,
+    type=click.Path(exists=True, path_type=Path),
+    help="CSV file to upload (default: data/cache/pins.csv)",
+)
+@click.option(
+    "--force-update",
+    is_flag=True,
+    help="Overwrite existing rows (by default existing rows are skipped)",
+)
+def sync_sheets_cmd(csv_path, force_update):
+    """Push pins.csv to Google Sheets.
+
+    Only adds new rows — existing rows (matched by id) are never touched,
+    so posted/failed statuses set by n8n are preserved.
+
+    Examples:
+
+        kinopois sync               Add only new pins to Google Sheets
+        kinopois sync --force-update  Overwrite all rows (resets statuses!)
+    """
+    if not _SHEETS_AVAILABLE:
+        print_error(
+            "Google Sheets integration not available", "Run: pip install gspread google-auth"
+        )
+        raise click.Abort()
+
+    if not config.google_sheets_id:
+        print_error("GOOGLE_SHEETS_ID is not set", "Add GOOGLE_SHEETS_ID to your .env file")
+        raise click.Abort()
+
+    if not config.google_creds_file:
+        print_error("GOOGLE_CREDS_FILE is not set", "Add GOOGLE_CREDS_FILE to your .env file")
+        raise click.Abort()
+
+    try:
+        stats = _sync_sheets(csv_path, upsert=force_update)
+        print_success(f"Synced {stats.get('total', 0)} rows to Google Sheets")
+        console.print(
+            f"[dim]Open: https://docs.google.com/spreadsheets/d/{config.google_sheets_id}[/dim]"
+        )
+    except FileNotFoundError as e:
+        print_error(f"File not found: {csv_path or 'pins.csv'}")
+        console.print("[dim]Run 'kinopois pins' first to create pins.csv[/dim]")
+        raise click.Abort()
+    except Exception as e:
+        print_error(f"Sheets sync failed: {e}")
+        raise click.Abort()
+
+
+@main.command("reconcile-sheet-statuses")
+def reconcile_sheet_statuses_cmd():
+    """Normalize broken/empty status values in Google Sheets."""
+    if not _SHEETS_AVAILABLE:
+        print_error(
+            "Google Sheets integration not available", "Run: pip install gspread google-auth"
+        )
+        raise click.Abort()
+    try:
+        stats = _normalize_sheet_statuses()
+        print_success(
+            "Reconcile complete: "
+            f"updated={stats['updated']} posted={stats['to_posted']} pending={stats['to_pending']}"
+        )
+    except Exception as e:
+        print_error(f"Reconcile failed: {e}")
+        raise click.Abort()
+
+
+@main.command("menu")
+@click.pass_context
+def interactive(ctx):
+    """Launch interactive menu with keyboard navigation.
+
+    Opens a menu where you can select commands using arrow keys.
+
+    Example:
+
+        kinopois
+        kinopois interactive
+    """
+    from kinopois.interactive import interactive as run_interactive
+
+    run_interactive()
+
+
+@main.command("autopilot-once")
+def autopilot_once_cmd():
+    """Run one autopilot tick sequence (harvest + due post slots)."""
+    Autopilot().run_once()
+    print_success("Autopilot one-shot run complete")
+
+
+@main.command("autopilot")
+def autopilot_daemon_cmd():
+    """Run autonomous scheduler forever."""
+    Autopilot().run_forever()
+
+
+@main.command("run-base-pipeline")
+@click.option("--limit", default=200, type=int, help="Download limit for this run")
+@click.option("--publish", default=0, type=int, help="Publish N ready jobs after prepare")
+@click.option(
+    "--sync-sheets",
+    is_flag=True,
+    help="Also sync pins.csv to Google Sheets and refresh upload fields",
+)
+def run_base_pipeline_cmd(limit, publish, sync_sheets):
+    """Run base modular pipeline: download -> process -> upload -> queue."""
+    stats = run_daily_prepare(max(1, int(limit)))
+    print_success(f"Prepare complete: {stats}")
+    if sync_sheets:
+        if not _SHEETS_AVAILABLE:
+            print_error("Google Sheets integration not available", "Run: pip install gspread google-auth")
+            raise click.Abort()
+        if not config.google_sheets_id:
+            print_error("GOOGLE_SHEETS_ID is not set", "Add GOOGLE_SHEETS_ID to your .env file")
+            raise click.Abort()
+        try:
+            sheet_stats = _sync_sheets(config.cache_dir / "pins.csv", upsert=False)
+            upload_stats = _sync_upload_fields_to_sheets(config.cache_dir / "pins.csv")
+            print_success(f"Sheets synced: {sheet_stats}; upload fields synced: {upload_stats}")
+        except Exception as exc:
+            print_error(
+                f"Sheets sync failed: {exc}",
+                "Prepare/upload completed; rerun `kinopois sync-sheets` later to reconcile.",
+            )
+    if publish > 0:
+        pub = step_publish(limit=publish)
+        print_success(f"Publish complete: {pub}")
+
+
+@main.command("backfill-assets")
+@click.option("--limit", default=200, type=int, help="Download limit for this run")
+def backfill_assets_cmd(limit):
+    """Full backfill: download/process/export/upload + upload-fields sync to Sheets."""
+    stats = run_daily_prepare(max(1, int(limit)))
+    print_success(f"Backfill prepare complete: {stats}")
+    if not _SHEETS_AVAILABLE:
+        print_error("Google Sheets integration not available", "Run: pip install gspread google-auth")
+        raise click.Abort()
+    up = _sync_upload_fields_to_sheets(config.cache_dir / "pins.csv")
+    print_success(f"Upload-fields synced: {up}")
 
 
 if __name__ == "__main__":

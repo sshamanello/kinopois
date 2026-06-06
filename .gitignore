@@ -66,8 +66,18 @@ data/cache/
 *.log
 .DS_Store
 
-# Generated files (keep structure but ignore content)
-data/posters/*.jpg
-data/collages/*.jpg
+# Generated data files — not tracked in git
+data/posters/
+data/posters_clean/
+data/posters_framed/
+data/collages/
+data/publish/
+data/*.db
 data/*.csv
-data/kinopois.db
+data/progress.json
+data/kinopois.log
+package-lock.json
+output.csv
+
+# Google service account keys — never commit!
+credentials/

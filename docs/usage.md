@@ -1,0 +1,31 @@
+# Usage
+
+## Download
+
+```bash
+kinopois download --limit 200
+```
+
+## Processing
+
+```bash
+kinopois process
+kinopois collage --watermark "@YourBot" --max-per-genre 2
+```
+
+## Publishing
+
+```bash
+kinopois export-movie-pins
+kinopois sync
+kinopois pins --limit 200 --sync-sheets
+kinopois run-prod --limit 200 --max-per-genre 1
+```
+
+## Autopilot
+
+```bash
+kinopois autopilot-once
+kinopois autopilot
+```
+

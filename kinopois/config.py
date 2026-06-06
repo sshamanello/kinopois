@@ -16,10 +16,14 @@ class Config:
 
     # API
     kinopoisk_api_key: str = field(default_factory=lambda: os.getenv("KINOPOISK_API_KEY", ""))
+    kinopoisk_api_url: str = field(default_factory=lambda: os.getenv("KINOPOISK_API_URL", "https://api.poiskkino.dev/v1.4/movie"))
+    kinopoisk_resolve_ips: str = field(default_factory=lambda: os.getenv("KINOPOISK_RESOLVE_IPS", ""))
 
     # Directories
     data_dir: Path = field(default_factory=lambda: Path(os.getenv("DATA_DIR", "data")))
     posters_dir: Path = field(default_factory=lambda: Path(os.getenv("POSTERS_DIR", "data/posters")))
+    framed_source_posters_dir: Path = field(default_factory=lambda: Path(os.getenv("FRAMED_SOURCE_POSTERS_DIR", "data/posters_clean")))
+    framed_posters_dir: Path = field(default_factory=lambda: Path(os.getenv("FRAMED_POSTERS_DIR", "data/posters_framed")))
     collages_dir: Path = field(default_factory=lambda: Path(os.getenv("COLLAGES_DIR", "data/collages")))
     cache_dir: Path = field(default_factory=lambda: Path(os.getenv("CACHE_DIR", "data/cache")))
 
@@ -30,8 +34,6 @@ class Config:
     rating_max: float = 10.0
     year_min: int = 2000
     year_max: int = 2025
-
-    # Rate limiting
     rate_limit_requests_per_second: float = 3.0
     rate_limit_retry_attempts: int = 3
     rate_limit_initial_delay: float = 1.0
@@ -49,25 +51,77 @@ class Config:
 
     # Export
     bot_url: str = "https://t.me/TopTrailer82Bot"
-    base_image_url: str = "https://sshamanello.ru/collages"
+    base_image_url: str = "http://87.120.219.4/collages"
+    posters_base_url: str = field(default_factory=lambda: os.getenv("POSTERS_BASE_URL", "http://87.120.219.4/posters"))
+    framed_posters_base_url: str = field(default_factory=lambda: os.getenv("FRAMED_POSTERS_BASE_URL", "http://87.120.219.4/posters_framed"))
+    use_framed_posters: bool = field(default_factory=lambda: os.getenv("USE_FRAMED_POSTERS", "1") == "1")
+    framed_refresh_source: bool = field(default_factory=lambda: os.getenv("FRAMED_REFRESH_SOURCE", "1") == "1")
+    framed_force_regenerate: bool = field(default_factory=lambda: os.getenv("FRAMED_FORCE_REGENERATE", "1") == "1")
+    publish_images_dir: Path = field(default_factory=lambda: Path(os.getenv("PUBLISH_IMAGES_DIR", "data/publish/ready")))
+    publish_images_base_url: str = field(default_factory=lambda: os.getenv("PUBLISH_IMAGES_BASE_URL", "http://87.120.219.4/pins/ready"))
+    publish_images_cleanup_enabled: bool = field(default_factory=lambda: os.getenv("PUBLISH_IMAGES_CLEANUP_ENABLED", "1") == "1")
+    publish_images_retention_days: int = field(default_factory=lambda: int(os.getenv("PUBLISH_IMAGES_RETENTION_DAYS", "21")))
+    publish_remote_sync_enabled: bool = field(default_factory=lambda: os.getenv("PUBLISH_REMOTE_SYNC_ENABLED", "0") == "1")
+    publish_remote_host: str = field(default_factory=lambda: os.getenv("PUBLISH_REMOTE_HOST", ""))
+    publish_remote_user: str = field(default_factory=lambda: os.getenv("PUBLISH_REMOTE_USER", "root"))
+    publish_remote_dir: str = field(default_factory=lambda: os.getenv("PUBLISH_REMOTE_DIR", "/var/www/html/pins/ready"))
+    publish_remote_connect_timeout_sec: int = field(default_factory=lambda: int(os.getenv("PUBLISH_REMOTE_CONNECT_TIMEOUT_SEC", "8")))
+    publish_remote_cmd_timeout_sec: int = field(default_factory=lambda: int(os.getenv("PUBLISH_REMOTE_CMD_TIMEOUT_SEC", "25")))
+
+    # Google Sheets integration
+    google_creds_file: str = field(default_factory=lambda: os.getenv("GOOGLE_CREDS_FILE", ""))
+    google_sheets_id: str = field(default_factory=lambda: os.getenv("GOOGLE_SHEETS_ID", ""))
+    google_sheets_tab: str = field(default_factory=lambda: os.getenv("GOOGLE_SHEETS_TAB", "pins"))
+
+    # Pinterest
+    pinterest_access_token: str = field(default_factory=lambda: os.getenv("PINTEREST_ACCESS_TOKEN", ""))
+    pinterest_board_id: str = field(default_factory=lambda: os.getenv("PINTEREST_BOARD_ID", ""))
 
     # CSV settings
     csv_delimiter: str = ";"
     csv_encoding: str = "utf-8-sig"
+
+    # Autopilot scheduler
+    autopilot_enabled: bool = field(default_factory=lambda: os.getenv("AUTOPILOT_ENABLED", "0") == "1")
+    autopilot_download_limit_per_day: int = field(default_factory=lambda: int(os.getenv("AUTOPILOT_DOWNLOAD_LIMIT_PER_DAY", "200")))
+    autopilot_posts_per_day: int = field(default_factory=lambda: int(os.getenv("AUTOPILOT_POSTS_PER_DAY", "3")))
+    autopilot_publish_attempts_per_slot: int = field(default_factory=lambda: int(os.getenv("AUTOPILOT_PUBLISH_ATTEMPTS_PER_SLOT", "5")))
+    autopilot_enable_publish: bool = field(default_factory=lambda: os.getenv("AUTOPILOT_ENABLE_PUBLISH", "1") == "1")
+    autopilot_slot_hours: str = field(default_factory=lambda: os.getenv("AUTOPILOT_SLOT_HOURS", "10,15,20"))
+    autopilot_slot_jitter_min: int = field(default_factory=lambda: int(os.getenv("AUTOPILOT_SLOT_JITTER_MIN", "20")))
+    autopilot_loop_sleep_sec: int = field(default_factory=lambda: int(os.getenv("AUTOPILOT_LOOP_SLEEP_SEC", "30")))
+    autopilot_state_file: Path = field(default_factory=lambda: Path(os.getenv("AUTOPILOT_STATE_FILE", "data/cache/autopilot_state.json")))
+    autopilot_publish_command: str = field(default_factory=lambda: os.getenv("AUTOPILOT_PUBLISH_COMMAND", ""))
+    autopilot_sync_sheets: bool = field(default_factory=lambda: os.getenv("AUTOPILOT_SYNC_SHEETS", "1") == "1")
+    autopilot_sync_queue: bool = field(default_factory=lambda: os.getenv("AUTOPILOT_SYNC_QUEUE", "1") == "1")
+
+    # Telegram alerts (optional)
+    telegram_bot_token: str = field(default_factory=lambda: os.getenv("TELEGRAM_BOT_TOKEN", ""))
+    telegram_chat_id: str = field(default_factory=lambda: os.getenv("TELEGRAM_CHAT_ID", ""))
 
     def __post_init__(self):
         """Create directories if they don't exist."""
         self.posters_dir.mkdir(parents=True, exist_ok=True)
         self.collages_dir.mkdir(parents=True, exist_ok=True)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
+        self.framed_source_posters_dir.mkdir(parents=True, exist_ok=True)
+        self.framed_posters_dir.mkdir(parents=True, exist_ok=True)
+        self.publish_images_dir.mkdir(parents=True, exist_ok=True)
+        self.posters_base_url = self.posters_base_url.rstrip("/")
+        self.framed_posters_base_url = self.framed_posters_base_url.rstrip("/")
+        self.publish_images_base_url = self.publish_images_base_url.rstrip("/")
 
     @classmethod
     def from_env(cls) -> "Config":
         """Create config from environment variables."""
         return cls(
             kinopoisk_api_key=os.getenv("KINOPOISK_API_KEY", ""),
+            kinopoisk_api_url=os.getenv("KINOPOISK_API_URL", "https://api.poiskkino.dev/v1.4/movie"),
+            kinopoisk_resolve_ips=os.getenv("KINOPOISK_RESOLVE_IPS", ""),
             data_dir=Path(os.getenv("DATA_DIR", "data")),
             posters_dir=Path(os.getenv("POSTERS_DIR", "data/posters")),
+            framed_source_posters_dir=Path(os.getenv("FRAMED_SOURCE_POSTERS_DIR", "data/posters_clean")),
+            framed_posters_dir=Path(os.getenv("FRAMED_POSTERS_DIR", "data/posters_framed")),
             collages_dir=Path(os.getenv("COLLAGES_DIR", "data/collages")),
             cache_dir=Path(os.getenv("CACHE_DIR", "data/cache")),
             collage_tile_width=int(os.getenv("COLLAGE_TILE_WIDTH", "500")),
@@ -76,12 +130,46 @@ class Config:
             watermark_text=os.getenv("WATERMARK_TEXT", "@TopTrailer82Bot"),
             watermark_position=os.getenv("WATERMARK_POSITION", "bottom"),
             bot_url=os.getenv("BOT_URL", "https://t.me/TopTrailer82Bot"),
-            base_image_url=os.getenv("BASE_IMAGE_URL", "https://sshamanello.ru/collages"),
+            base_image_url=os.getenv("BASE_IMAGE_URL", "http://87.120.219.4/collages"),
+            posters_base_url=os.getenv("POSTERS_BASE_URL", "http://87.120.219.4/posters"),
+            framed_posters_base_url=os.getenv("FRAMED_POSTERS_BASE_URL", "http://87.120.219.4/posters_framed"),
+            use_framed_posters=os.getenv("USE_FRAMED_POSTERS", "1") == "1",
+            framed_refresh_source=os.getenv("FRAMED_REFRESH_SOURCE", "1") == "1",
+            framed_force_regenerate=os.getenv("FRAMED_FORCE_REGENERATE", "1") == "1",
+            publish_images_dir=Path(os.getenv("PUBLISH_IMAGES_DIR", "data/publish/ready")),
+            publish_images_base_url=os.getenv("PUBLISH_IMAGES_BASE_URL", "http://87.120.219.4/pins/ready"),
+            publish_images_cleanup_enabled=os.getenv("PUBLISH_IMAGES_CLEANUP_ENABLED", "1") == "1",
+            publish_images_retention_days=int(os.getenv("PUBLISH_IMAGES_RETENTION_DAYS", "21")),
+            publish_remote_sync_enabled=os.getenv("PUBLISH_REMOTE_SYNC_ENABLED", "0") == "1",
+            publish_remote_host=os.getenv("PUBLISH_REMOTE_HOST", ""),
+            publish_remote_user=os.getenv("PUBLISH_REMOTE_USER", "root"),
+            publish_remote_dir=os.getenv("PUBLISH_REMOTE_DIR", "/var/www/html/pins/ready"),
+            publish_remote_connect_timeout_sec=int(os.getenv("PUBLISH_REMOTE_CONNECT_TIMEOUT_SEC", "8")),
+            publish_remote_cmd_timeout_sec=int(os.getenv("PUBLISH_REMOTE_CMD_TIMEOUT_SEC", "25")),
+            google_creds_file=os.getenv("GOOGLE_CREDS_FILE", ""),
+            google_sheets_id=os.getenv("GOOGLE_SHEETS_ID", ""),
+            google_sheets_tab=os.getenv("GOOGLE_SHEETS_TAB", "pins"),
+            pinterest_access_token=os.getenv("PINTEREST_ACCESS_TOKEN", ""),
+            pinterest_board_id=os.getenv("PINTEREST_BOARD_ID", ""),
+            autopilot_enabled=os.getenv("AUTOPILOT_ENABLED", "0") == "1",
+            autopilot_download_limit_per_day=int(os.getenv("AUTOPILOT_DOWNLOAD_LIMIT_PER_DAY", "200")),
+            autopilot_posts_per_day=int(os.getenv("AUTOPILOT_POSTS_PER_DAY", "3")),
+            autopilot_publish_attempts_per_slot=int(os.getenv("AUTOPILOT_PUBLISH_ATTEMPTS_PER_SLOT", "5")),
+            autopilot_enable_publish=os.getenv("AUTOPILOT_ENABLE_PUBLISH", "1") == "1",
+            autopilot_slot_hours=os.getenv("AUTOPILOT_SLOT_HOURS", "10,15,20"),
+            autopilot_slot_jitter_min=int(os.getenv("AUTOPILOT_SLOT_JITTER_MIN", "20")),
+            autopilot_loop_sleep_sec=int(os.getenv("AUTOPILOT_LOOP_SLEEP_SEC", "30")),
+            autopilot_state_file=Path(os.getenv("AUTOPILOT_STATE_FILE", "data/cache/autopilot_state.json")),
+            autopilot_publish_command=os.getenv("AUTOPILOT_PUBLISH_COMMAND", ""),
+            autopilot_sync_sheets=os.getenv("AUTOPILOT_SYNC_SHEETS", "1") == "1",
+            autopilot_sync_queue=os.getenv("AUTOPILOT_SYNC_QUEUE", "1") == "1",
             rate_limit_requests_per_second=float(os.getenv("RATE_LIMIT_RPS", "3.0")),
             rate_limit_retry_attempts=int(os.getenv("RATE_LIMIT_RETRIES", "3")),
             rate_limit_initial_delay=float(os.getenv("RATE_LIMIT_INITIAL_DELAY", "1.0")),
             rate_limit_max_delay=float(os.getenv("RATE_LIMIT_MAX_DELAY", "60.0")),
             rate_limit_backoff_multiplier=float(os.getenv("RATE_LIMIT_BACKOFF_MULTIPLIER", "2.0")),
+            telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN", ""),
+            telegram_chat_id=os.getenv("TELEGRAM_CHAT_ID", ""),
         )
 
 

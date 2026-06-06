@@ -1,0 +1,23 @@
+# Don't copy local data into the image — use volume mounts instead
+data/
+.env
+credentials/
+
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+
+# Dev / OS
+.git/
+.gitignore
+.vscode/
+.idea/
+*.log
+.DS_Store

@@ -1,0 +1,487 @@
+{
+  "name": "Pinterest KinoVezde",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 5,
+              "triggerAtMinute": 15
+            }
+          ]
+        }
+      },
+      "id": "f895eb28-46d5-433f-9060-6d704378efb1",
+      "name": "Every 5 hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -2048,
+        272
+      ],
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "documentId": {
+          "__rl": true,
+          "value": "1E7NiTsLSaURmLzq286SvCEuUt5PlEq6kdEy-jE4mjw0",
+          "mode": "list",
+          "cachedResultName": "KinoPinterest",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1E7NiTsLSaURmLzq286SvCEuUt5PlEq6kdEy-jE4mjw0/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "pins",
+          "mode": "name"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "publish_status",
+              "lookupValue": "ready"
+            },
+            {
+              "lookupColumn": "vds_upload_status",
+              "lookupValue": "uploaded"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7dcd00d8-7b43-46f2-9cc6-da81037830c0",
+      "name": "Get ready rows",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -1808,
+        192
+      ],
+      "credentials": {
+        "googleApi": {
+          "id": "Ofs0HJAih2ZMwneg",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const ready = items.filter((item) => {\n  const row = item.json;\n  const status = String(row.publish_status ?? '').trim().toLowerCase();\n  const upload = String(row.vds_upload_status ?? '').trim().toLowerCase();\n  return status === 'ready'\n    && upload === 'uploaded'\n    && Boolean(row.public_image_url || row.image_url)\n    && Boolean(row.id);\n});\n\nreturn ready.slice(0, 1);\n"
+      },
+      "id": "2012fe65-93e7-4cd7-9a26-3865ba5acbfd",
+      "name": "Pick one publishable row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1568,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "pinBoardId": "={{ $json.board_id || '1085930597590767480' }}",
+        "pinTitle": "={{ ($json.title || $json.original_title || 'Фильм').toString().slice(0, 100) }}",
+        "pinDescription": "={{ ($json.description || 'Сохраните этот пин с постером фильма.').toString().slice(0, 500) }}",
+        "pinLink": "={{ $json.kp_url || 'https://t.me/TopTrailer82Bot' }}",
+        "imageUrl": "={{ $json.public_image_url || $json.image_url }}"
+      },
+      "id": "c63e87de-e969-41ac-96f3-cb67fefc5ea1",
+      "name": "Create Pinterest pin",
+      "type": "n8n-nodes-pin-interest.pinInterest",
+      "typeVersion": 1,
+      "position": [
+        -1312,
+        192
+      ],
+      "credentials": {
+        "pinInterestOAuth2Api": {
+          "id": "F0pxjtQAV06pJuzo",
+          "name": "InkMint"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "no_error",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "8d643710-ed01-440d-84d8-271b27c5637c",
+      "name": "Pinterest success?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1072,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1E7NiTsLSaURmLzq286SvCEuUt5PlEq6kdEy-jE4mjw0",
+          "mode": "list",
+          "cachedResultName": "KinoPinterest",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1E7NiTsLSaURmLzq286SvCEuUt5PlEq6kdEy-jE4mjw0/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "pins",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $('Pick one publishable row').item.json.id }}",
+            "status": "posted",
+            "publish_status": "published",
+            "posted_at": "={{ $now }}",
+            "published_at": "={{ $now }}",
+            "error_reason": ""
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "publish_status",
+              "displayName": "publish_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "posted_at",
+              "displayName": "posted_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "published_at",
+              "displayName": "published_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "error_reason",
+              "displayName": "error_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "07bf04ae-3087-42f9-948b-8d0d78f7a561",
+      "name": "Mark row published",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -784,
+        96
+      ],
+      "credentials": {
+        "googleApi": {
+          "id": "Ofs0HJAih2ZMwneg",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1E7NiTsLSaURmLzq286SvCEuUt5PlEq6kdEy-jE4mjw0",
+          "mode": "list",
+          "cachedResultName": "KinoPinterest",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1E7NiTsLSaURmLzq286SvCEuUt5PlEq6kdEy-jE4mjw0/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "pins",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $('Pick one publishable row').item.json.id }}",
+            "status": "failed",
+            "publish_status": "failed",
+            "error_reason": "={{ $json.error?.message || $json.error || $json.message || 'unknown Pinterest error' }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "publish_status",
+              "displayName": "publish_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "error_reason",
+              "displayName": "error_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "e4319227-6ba9-4704-a165-a240a55d0e5a",
+      "name": "Mark row failed",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -784,
+        288
+      ],
+      "credentials": {
+        "googleApi": {
+          "id": "Ofs0HJAih2ZMwneg",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Важно\nCleanup файлов сделан отдельным workflow. Не удаляем JPG сразу после создания pin: Pinterest должен успеть забрать изображение по URL.",
+        "height": 180,
+        "width": 360
+      },
+      "id": "7e5fdabc-c03f-4f39-9e21-22bb2eccedd7",
+      "name": "Sticky Note 2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -832,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "board"
+      },
+      "type": "n8n-nodes-pin-interest.pinInterest",
+      "typeVersion": 1,
+      "position": [
+        -1376,
+        -144
+      ],
+      "id": "e83db6b4-2464-4dac-af4c-a49c435fc609",
+      "name": "List boards",
+      "credentials": {
+        "pinInterestOAuth2Api": {
+          "id": "2J7VZQl3ain7Cewo",
+          "name": "KinoVezde"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "path": "447c623b-b1b5-4741-b8f6-c0d2de427802",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -2048,
+        64
+      ],
+      "id": "47915616-aec8-4982-b48c-cf836d1acf2f",
+      "name": "Webhook",
+      "webhookId": "447c623b-b1b5-4741-b8f6-c0d2de427802"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Every 5 hours": {
+      "main": [
+        [
+          {
+            "node": "Get ready rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get ready rows": {
+      "main": [
+        [
+          {
+            "node": "Pick one publishable row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick one publishable row": {
+      "main": [
+        [
+          {
+            "node": "Create Pinterest pin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Pinterest pin": {
+      "main": [
+        [
+          {
+            "node": "Pinterest success?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pinterest success?": {
+      "main": [
+        [
+          {
+            "node": "Mark row published",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark row failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get ready rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true
+  },
+  "versionId": "4ff8d8a0-ef7c-4a35-bf95-36779a4c1c72",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "2b615a4ee9dcb4fb69a3233f53ddc1715da07a2d4a50e08b96754c796cdf17ea"
+  },
+  "id": "EQaU1cR58RbzO5XG",
+  "tags": [
+    {
+      "updatedAt": "2026-05-11T12:53:04.246Z",
+      "createdAt": "2026-05-11T12:53:04.246Z",
+      "id": "ntNUJR8EeGuY9WqC",
+      "name": "Pinterest"
+    }
+  ]
+}

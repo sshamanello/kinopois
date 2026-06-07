@@ -15,9 +15,9 @@ LIMIT="${LIMIT:-200}"
 mkdir -p "$LOG_DIR"
 
 if docker compose version >/dev/null 2>&1; then
-  RUN_CMD="cd $REPO_DIR && docker compose run --rm kinopois-prepare run-base-pipeline --limit $LIMIT --sync-sheets"
+  RUN_CMD="cd $REPO_DIR && docker compose run --rm kinopois-prepare run-base-pipeline --limit $LIMIT"
 elif docker image inspect kinopois:prod >/dev/null 2>&1; then
-  RUN_CMD="docker run --rm --env-file $REPO_DIR/.env -v $REPO_DIR/data:/app/data -v $REPO_DIR/credentials:/app/credentials:ro kinopois:prod run-base-pipeline --limit $LIMIT --sync-sheets"
+  RUN_CMD="docker run --rm --env-file $REPO_DIR/.env -v $REPO_DIR/data:/app/data -v $REPO_DIR/credentials:/app/credentials:ro kinopois:prod run-base-pipeline --limit $LIMIT"
 else
   echo "ERROR: neither 'docker compose' nor image 'kinopois:prod' is available."
   echo "Build image first: docker build -t kinopois:prod $REPO_DIR"

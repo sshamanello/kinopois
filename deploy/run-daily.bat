@@ -12,6 +12,6 @@ cd /d "%~dp0.."
 echo [%date% %time%] Starting kinopois... >> data\kinopois-cron.log 2>&1
 
 call .venv\Scripts\activate.bat
-kinopois run-pins --limit 200 --sync-sheets >> data\kinopois-cron.log 2>&1
+kinopois run-pins --limit 200 >> data\kinopois-cron.log 2>&1
 
 echo [%date% %time%] Done >> data\kinopois-cron.log 2>&1

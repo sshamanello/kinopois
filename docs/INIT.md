@@ -1,11 +1,26 @@
 # INIT.md — Быстрый контекст kinopois
 
-> Последнее обновление: 2026-05-02
+> Последнее обновление: 2026-06-06
 
 ## Правило ведения INIT.md
 
 - При любом изменении проекта обновлять `INIT.md` в том же коммите.
 - Кратко фиксировать что изменено и зачем.
+
+## Изменения 2026-06-06
+
+- `kinopois` и `cf-pinterest-parser` теперь разведены как отдельные проекты; этот файл описывает только `kinopois`.
+- Текущий live-контур публикации `KinoVezde`:
+  - workflow: `Pinterest KinoVezde Base64`,
+  - credential: `KinoVezde` (`pinInterestOAuth2Api`, id `2J7VZQl3ain7Cewo`),
+  - доступная доска в этом аккаунте: `Кино`, `board_id = 1085930597590767480`,
+  - источник ассета остаётся локальным: `Get ready rows` -> `Read image file` -> `Convert image to base64`,
+  - publish-узел должен быть нативным Pinterest `Create a pin` / эквивалентной нодой с проверкой доступа к board,
+  - использование `board_id` от другого Pinterest-аккаунта приводит к `Forbidden - perhaps check your credentials?`.
+- Для восстановления контекста важно помнить:
+  - `kinopois` публикует кино-карточки из своей очереди `kinopois_pins`,
+  - `KinoVezde` не должен ссылаться на `cf-pinterest-parser`-файлы или board ids,
+  - все правки публикации и очереди должны происходить в `/Users/nick/code/kinopois`.
 
 ## Изменения 2026-05-02
 
@@ -48,8 +63,8 @@
 
 ## Важно
 
-- Если `AUTOPILOT_PUBLISH_COMMAND` пустой, harvest/queue/sheets будут работать, но слот публикации будет помечаться как skip.
-- Для полностью автономной публикации нужен рабочий publish hook (или внешний n8n, который читает очередь/таблицу и постит сам).
+- Если `AUTOPILOT_PUBLISH_COMMAND` пустой, harvest/queue будут работать, но слот публикации будет помечаться как skip.
+- Для полностью автономной публикации нужен рабочий publish hook (или внешний n8n, который читает локальную очередь и постит сам).
 
 ## Изменения 2026-05-02 (рамочные креативы)
 
@@ -173,22 +188,19 @@
   - process
   - export
   - upload images
-  - queue/sheets sync
+  - queue sync
 - Публикационные слоты Pinterest в этом режиме пропускаются (n8n публикует отдельно).
 
 ## Изменения 2026-05-11 (n8n status reconcile hardening)
 
 - Подтвержден критичный источник рассинхрона статусов: в одном workflow-файле n8n
   нода `Update row - failed` матчила строку по `status`, а не по `id`.
-- Добавлена функция `normalize_sheet_statuses()` в `kinopois/sheets.py`.
-- Добавлена CLI-команда:
-  - `kinopois reconcile-sheet-statuses`
-  - исправляет пустые/невалидные статусы в Google Sheets:
-    - `posted_at` заполнен -> `status=posted`
-    - `posted_at` пуст и status пуст/битый -> `status=pending`
-- Добавлен скрипт `scripts/reconcile_sheet_statuses.py` с такой же логикой
-  для одноразового ручного запуска.
-- README дополнен новой командой обслуживания таблицы.
+- Добавлен локальный queue API для n8n:
+  - `kinopois queue-api`
+  - `GET /queue/next`
+  - `POST /queue/posted`
+  - `POST /queue/failed`
+- Никакие таблицы больше не участвуют в publish path.
 
 ## Изменения 2026-05-11 (download hardening for transient API 403)
 
@@ -224,18 +236,18 @@
 - В `step_cleanup_publish_dir()` добавлена удалённая очистка:
   - `ssh find ... -mtime +N -delete` по `PUBLISH_IMAGES_RETENTION_DAYS`.
 
-## Изменения 2026-05-11 (hard backfill for images + sheets)
+## Изменения 2026-05-11 (hard backfill for images + queue sync)
 
 - `step_upload_to_server()` усилен fallback-логикой:
   - если локальный source-постер не найден, выполняется докачка по `poster_url`,
     затем файл отправляется в publish-контур.
-- Добавлен selective sync upload-полей в Sheets:
-  - `sync_upload_fields_to_sheets()` обновляет по `id` только:
+- Добавлен selective sync upload-полей в локальную очередь:
+  - `sync_upload_fields_to_queue()` обновляет по `id` только:
     `image_url`, `public_image_url`, `remote_image_path`,
     `vds_upload_status`, `uploaded_at`, `publish_status`, `error_reason`.
 - Добавлена CLI-команда:
   - `kinopois backfill-assets --limit 200`
-  - выполняет prepare + selective upload-fields sync в таблицу.
+  - выполняет prepare + selective upload-fields sync в локальную очередь.
 
 ## Изменения 2026-05-11 (stable auto-copy after processing)
 
@@ -274,7 +286,7 @@
 ## Изменения 2026-05-17 (dockerized prod runtime)
 
 - `docker-compose.yml` разделён на 2 сервиса:
-  - `kinopois-prepare` — one-shot подготовка (`run-pins --sync-sheets`);
+  - `kinopois-prepare` — one-shot подготовка (`run-pins`);
   - `kinopois-autopilot` — постоянный daemon (`kinopois autopilot`, `restart: always`).
 - Добавлен persistent mount для логов контейнера:
   - `./logs:/app/logs`.
@@ -326,10 +338,7 @@
 
 ## Изменения 2026-05-21 (stable full-cycle prod mode)
 
-- `run-base-pipeline` расширен флагом `--sync-sheets`:
-  - после prepare выполняется `sync_pins_to_sheets(..., upsert=False)`;
-  - затем `sync_upload_fields_to_sheets(...)` для актуализации `public_image_url`,
-    `vds_upload_status`, `publish_status` и связанных полей.
+- `run-base-pipeline` теперь завершает prepare и, при необходимости, отдельный publish step через локальную очередь.
 - `deploy/cron-setup.sh` переведён на production-safe поведение:
   - дефолтный запуск в `21:00` (`CRON_TZ=Europe/Moscow`);
   - лог в `data/logs/cron.log`;
@@ -337,7 +346,7 @@
     - `docker compose run --rm kinopois-prepare ...` (если compose доступен),
     - `docker run ... kinopois:prod ...` (fallback без compose).
 - `docker-compose.yml` для `kinopois-prepare` синхронизирован с базовым циклом:
-  - команда по умолчанию `run-base-pipeline --limit 200 --sync-sheets`.
+  - команда по умолчанию `run-base-pipeline --limit 200`.
 
 ## Изменения 2026-05-21 (remote upload reliability + cron idempotency)
 
@@ -349,9 +358,7 @@
 - Усилен `step_upload_to_server`:
   - `scp` теперь с retry (3 попытки, backoff), чтобы сглаживать временные сетевые таймауты;
   - добавлены `ssh` опции для чистых логов в read-only known_hosts окружении.
-- `run-base-pipeline --sync-sheets` теперь не ломает весь цикл при сетевом сбое Google Sheets:
-  - prepare/upload завершаются;
-  - ошибка sync логируется в CLI с подсказкой про `kinopois sync-sheets`.
+- Локальная queue-публикация больше не зависит от внешних таблиц и сетевых sync-операций.
 - `deploy/cron-setup.sh` сделан идемпотентным:
   - повторный запуск не дублирует `CRON_TZ` и cron-строки;
   - гарантируется одна рабочая задача на `21:00 Europe/Moscow`.

@@ -37,19 +37,11 @@ from kinopois.publishing.db import (
     sync_all_from_csv,
     db_counts,
 )
+from kinopois.publishing.queue_api import serve_queue_api
 from kinopois.processing.marker import mark_posters, PosterMarker
 from kinopois.publishing.pipeline_steps import run_daily_prepare, step_publish
 from kinopois.processing.processor import load_clean_movies, load_movies
 from kinopois.download.scraper import KinopoiskScraper
-
-try:
-    from kinopois.publishing.sheets import normalize_sheet_statuses as _normalize_sheet_statuses
-    from kinopois.publishing.sheets import sync_upload_fields_to_sheets as _sync_upload_fields_to_sheets
-    from kinopois.publishing.sheets import sync_pins_to_sheets as _sync_sheets
-
-    _SHEETS_AVAILABLE = True
-except ImportError:
-    _SHEETS_AVAILABLE = False
 
 console = Console()
 
@@ -98,7 +90,6 @@ def main(ctx, api_key, data_dir):
 
     [cyan]kinopois[/cyan]              Interactive menu
     [cyan]kinopois pins[/cyan]          Download movies and create Pinterest pins
-    [cyan]kinopois pins --sync-sheets[/cyan]  Download + push to Google Sheets
     """
     ctx.ensure_object(dict)
 
@@ -382,7 +373,7 @@ def run(ctx, run_all, limit, skip_download):
         console.print("  [cyan]kinopois collage[/cyan]        Create poster collages")
         console.print("  [cyan]kinopois download[/cyan]       Download posters only")
         console.print("  [cyan]kinopois process[/cyan]         Clean movie data")
-        console.print("  [cyan]kinopois sync[/cyan]           Push pins to Google Sheets")
+        console.print("  [cyan]kinopois queue-sync[/cyan]      Import pins into SQLite queue")
         console.print("")
         console.print("Run 'kinopois --help' for all commands")
         return
@@ -642,11 +633,8 @@ def queue_failed_cmd(job_id, error):
     "--skip-process", is_flag=True, help="Skip processing (use existing movies_clean.csv)"
 )
 @click.option("--sync-queue", is_flag=True, help="Also sync to SQLite database")
-@click.option(
-    "--sync-sheets", is_flag=True, help="Push pins to Google Sheets (requires GOOGLE_SHEETS_ID)"
-)
 @click.pass_context
-def run_pins_cmd(ctx, limit, skip_download, skip_process, sync_queue, sync_sheets):
+def run_pins_cmd(ctx, limit, skip_download, skip_process, sync_queue):
     """Download movies and create Pinterest-ready pins.
 
     This is the main command for the pin pipeline:
@@ -654,13 +642,10 @@ def run_pins_cmd(ctx, limit, skip_download, skip_process, sync_queue, sync_sheet
     2. Clean data and add genres
     3. Export to pins.csv
 
-    Use --sync-sheets to automatically push to Google Sheets for n8n/Pinterest automation.
-
     Examples:
 
         kinopois pins                          Download 200 movies and create pins
         kinopois pins --limit 100              Download only 100 movies
-        kinopois pins --sync-sheets            Download and push to Google Sheets
         kinopois pins --skip-download          Create pins from existing data
     """
     if not config.kinopoisk_api_key and not skip_download:
@@ -694,21 +679,6 @@ def run_pins_cmd(ctx, limit, skip_download, skip_process, sync_queue, sync_sheet
         counts = db_counts()
         console.print(f"[green]DB synced, inserted: {inserted}[/green]")
         console.print(f"[cyan]DB counts:[/cyan] {counts}")
-
-    if sync_sheets:
-        if not _SHEETS_AVAILABLE:
-            console.print(
-                "[yellow]Warning: Google Sheets sync not available (gspread not installed)[/yellow]"
-            )
-        elif not config.google_sheets_id:
-            console.print("[yellow]Warning: GOOGLE_SHEETS_ID not set in .env[/yellow]")
-        else:
-            console.print("\n[cyan]Syncing to Google Sheets...[/cyan]")
-            try:
-                stats = _sync_sheets()
-                console.print(f"[green]Sheets synced: {stats.get('total', 0)} rows[/green]")
-            except Exception as e:
-                console.print(f"[red]Sheets sync failed: {e}[/red]")
 
     console.print("\n[green]✓ Done![/green]")
     console.print(f"[cyan]Pins saved to:[/cyan] {config.cache_dir / 'pins.csv'}")
@@ -760,76 +730,12 @@ def export_movie_pins_cmd(input_csv, output_csv, limit):
     print_success(f"Pins exported to {output_path}")
 
 
-@main.command("sync")
-@click.option(
-    "--csv",
-    "csv_path",
-    default=None,
-    type=click.Path(exists=True, path_type=Path),
-    help="CSV file to upload (default: data/cache/pins.csv)",
-)
-@click.option(
-    "--force-update",
-    is_flag=True,
-    help="Overwrite existing rows (by default existing rows are skipped)",
-)
-def sync_sheets_cmd(csv_path, force_update):
-    """Push pins.csv to Google Sheets.
-
-    Only adds new rows — existing rows (matched by id) are never touched,
-    so posted/failed statuses set by n8n are preserved.
-
-    Examples:
-
-        kinopois sync               Add only new pins to Google Sheets
-        kinopois sync --force-update  Overwrite all rows (resets statuses!)
-    """
-    if not _SHEETS_AVAILABLE:
-        print_error(
-            "Google Sheets integration not available", "Run: pip install gspread google-auth"
-        )
-        raise click.Abort()
-
-    if not config.google_sheets_id:
-        print_error("GOOGLE_SHEETS_ID is not set", "Add GOOGLE_SHEETS_ID to your .env file")
-        raise click.Abort()
-
-    if not config.google_creds_file:
-        print_error("GOOGLE_CREDS_FILE is not set", "Add GOOGLE_CREDS_FILE to your .env file")
-        raise click.Abort()
-
-    try:
-        stats = _sync_sheets(csv_path, upsert=force_update)
-        print_success(f"Synced {stats.get('total', 0)} rows to Google Sheets")
-        console.print(
-            f"[dim]Open: https://docs.google.com/spreadsheets/d/{config.google_sheets_id}[/dim]"
-        )
-    except FileNotFoundError as e:
-        print_error(f"File not found: {csv_path or 'pins.csv'}")
-        console.print("[dim]Run 'kinopois pins' first to create pins.csv[/dim]")
-        raise click.Abort()
-    except Exception as e:
-        print_error(f"Sheets sync failed: {e}")
-        raise click.Abort()
-
-
-@main.command("reconcile-sheet-statuses")
-def reconcile_sheet_statuses_cmd():
-    """Normalize broken/empty status values in Google Sheets."""
-    if not _SHEETS_AVAILABLE:
-        print_error(
-            "Google Sheets integration not available", "Run: pip install gspread google-auth"
-        )
-        raise click.Abort()
-    try:
-        stats = _normalize_sheet_statuses()
-        print_success(
-            "Reconcile complete: "
-            f"updated={stats['updated']} posted={stats['to_posted']} pending={stats['to_pending']}"
-        )
-    except Exception as e:
-        print_error(f"Reconcile failed: {e}")
-        raise click.Abort()
+@main.command("queue-api")
+@click.option("--host", default=None, help="Bind host (default: QUEUE_API_HOST or 127.0.0.1)")
+@click.option("--port", default=None, type=int, help="Bind port (default: QUEUE_API_PORT or 8787)")
+def queue_api_cmd(host, port):
+    """Run the local SQLite-backed queue API for n8n."""
+    serve_queue_api(host=host, port=port)
 
 
 @main.command("menu")
@@ -865,31 +771,10 @@ def autopilot_daemon_cmd():
 @main.command("run-base-pipeline")
 @click.option("--limit", default=200, type=int, help="Download limit for this run")
 @click.option("--publish", default=0, type=int, help="Publish N ready jobs after prepare")
-@click.option(
-    "--sync-sheets",
-    is_flag=True,
-    help="Also sync pins.csv to Google Sheets and refresh upload fields",
-)
-def run_base_pipeline_cmd(limit, publish, sync_sheets):
+def run_base_pipeline_cmd(limit, publish):
     """Run base modular pipeline: download -> process -> upload -> queue."""
     stats = run_daily_prepare(max(1, int(limit)))
     print_success(f"Prepare complete: {stats}")
-    if sync_sheets:
-        if not _SHEETS_AVAILABLE:
-            print_error("Google Sheets integration not available", "Run: pip install gspread google-auth")
-            raise click.Abort()
-        if not config.google_sheets_id:
-            print_error("GOOGLE_SHEETS_ID is not set", "Add GOOGLE_SHEETS_ID to your .env file")
-            raise click.Abort()
-        try:
-            sheet_stats = _sync_sheets(config.cache_dir / "pins.csv", upsert=False)
-            upload_stats = _sync_upload_fields_to_sheets(config.cache_dir / "pins.csv")
-            print_success(f"Sheets synced: {sheet_stats}; upload fields synced: {upload_stats}")
-        except Exception as exc:
-            print_error(
-                f"Sheets sync failed: {exc}",
-                "Prepare/upload completed; rerun `kinopois sync-sheets` later to reconcile.",
-            )
     if publish > 0:
         pub = step_publish(limit=publish)
         print_success(f"Publish complete: {pub}")
@@ -898,14 +783,10 @@ def run_base_pipeline_cmd(limit, publish, sync_sheets):
 @main.command("backfill-assets")
 @click.option("--limit", default=200, type=int, help="Download limit for this run")
 def backfill_assets_cmd(limit):
-    """Full backfill: download/process/export/upload + upload-fields sync to Sheets."""
+    """Full backfill: download/process/export/upload + queue sync."""
     stats = run_daily_prepare(max(1, int(limit)))
     print_success(f"Backfill prepare complete: {stats}")
-    if not _SHEETS_AVAILABLE:
-        print_error("Google Sheets integration not available", "Run: pip install gspread google-auth")
-        raise click.Abort()
-    up = _sync_upload_fields_to_sheets(config.cache_dir / "pins.csv")
-    print_success(f"Upload-fields synced: {up}")
+    print_success("Queue sync complete as part of prepare step")
 
 
 if __name__ == "__main__":

@@ -62,11 +62,8 @@ class Config:
     publish_remote_dir: str = field(default_factory=lambda: os.getenv("PUBLISH_REMOTE_DIR", "/var/www/html/pins/ready"))
     publish_remote_connect_timeout_sec: int = field(default_factory=lambda: int(os.getenv("PUBLISH_REMOTE_CONNECT_TIMEOUT_SEC", "8")))
     publish_remote_cmd_timeout_sec: int = field(default_factory=lambda: int(os.getenv("PUBLISH_REMOTE_CMD_TIMEOUT_SEC", "25")))
-
-    # Google Sheets integration
-    google_creds_file: str = field(default_factory=lambda: os.getenv("GOOGLE_CREDS_FILE", ""))
-    google_sheets_id: str = field(default_factory=lambda: os.getenv("GOOGLE_SHEETS_ID", ""))
-    google_sheets_tab: str = field(default_factory=lambda: os.getenv("GOOGLE_SHEETS_TAB", "pins"))
+    queue_api_host: str = field(default_factory=lambda: os.getenv("QUEUE_API_HOST", "127.0.0.1"))
+    queue_api_port: int = field(default_factory=lambda: int(os.getenv("QUEUE_API_PORT", "8788")))
 
     # Pinterest
     pinterest_access_token: str = field(default_factory=lambda: os.getenv("PINTEREST_ACCESS_TOKEN", ""))
@@ -87,7 +84,6 @@ class Config:
     autopilot_loop_sleep_sec: int = field(default_factory=lambda: int(os.getenv("AUTOPILOT_LOOP_SLEEP_SEC", "30")))
     autopilot_state_file: Path = field(default_factory=lambda: Path(os.getenv("AUTOPILOT_STATE_FILE", "data/cache/autopilot_state.json")))
     autopilot_publish_command: str = field(default_factory=lambda: os.getenv("AUTOPILOT_PUBLISH_COMMAND", ""))
-    autopilot_sync_sheets: bool = field(default_factory=lambda: os.getenv("AUTOPILOT_SYNC_SHEETS", "1") == "1")
     autopilot_sync_queue: bool = field(default_factory=lambda: os.getenv("AUTOPILOT_SYNC_QUEUE", "1") == "1")
 
     # Telegram alerts (optional)
@@ -141,9 +137,8 @@ class Config:
             publish_remote_dir=os.getenv("PUBLISH_REMOTE_DIR", "/var/www/html/pins/ready"),
             publish_remote_connect_timeout_sec=int(os.getenv("PUBLISH_REMOTE_CONNECT_TIMEOUT_SEC", "8")),
             publish_remote_cmd_timeout_sec=int(os.getenv("PUBLISH_REMOTE_CMD_TIMEOUT_SEC", "25")),
-            google_creds_file=os.getenv("GOOGLE_CREDS_FILE", ""),
-            google_sheets_id=os.getenv("GOOGLE_SHEETS_ID", ""),
-            google_sheets_tab=os.getenv("GOOGLE_SHEETS_TAB", "pins"),
+            queue_api_host=os.getenv("QUEUE_API_HOST", "127.0.0.1"),
+            queue_api_port=int(os.getenv("QUEUE_API_PORT", "8788")),
             pinterest_access_token=os.getenv("PINTEREST_ACCESS_TOKEN", ""),
             pinterest_board_id=os.getenv("PINTEREST_BOARD_ID", ""),
             autopilot_enabled=os.getenv("AUTOPILOT_ENABLED", "0") == "1",
@@ -156,7 +151,6 @@ class Config:
             autopilot_loop_sleep_sec=int(os.getenv("AUTOPILOT_LOOP_SLEEP_SEC", "30")),
             autopilot_state_file=Path(os.getenv("AUTOPILOT_STATE_FILE", "data/cache/autopilot_state.json")),
             autopilot_publish_command=os.getenv("AUTOPILOT_PUBLISH_COMMAND", ""),
-            autopilot_sync_sheets=os.getenv("AUTOPILOT_SYNC_SHEETS", "1") == "1",
             autopilot_sync_queue=os.getenv("AUTOPILOT_SYNC_QUEUE", "1") == "1",
             telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN", ""),
             telegram_chat_id=os.getenv("TELEGRAM_CHAT_ID", ""),

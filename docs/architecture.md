@@ -4,7 +4,7 @@
 
 1. `download/` fetches raw movie data and posters from Kinopoisk
 2. `processing/` cleans CSV rows and builds poster collages or framed assets
-3. `publishing/` exports Pinterest rows, syncs Google Sheets, and runs the queue/autopilot layer
+3. `publishing/` exports Pinterest rows, runs the local queue, and drives the n8n/autopilot layer
 
 ## Data flow
 
@@ -13,8 +13,7 @@ Kinopoisk.dev API
   -> data/cache/movies.csv
   -> data/cache/movies_clean.csv
   -> data/cache/pins.csv
-  -> Google Sheets / SQLite queue / Pinterest API
+  -> SQLite queue / n8n / Pinterest API
 ```
 
 The collage pipeline is independent from the pin-export pipeline.
-

@@ -259,7 +259,7 @@ def get_ready_jobs(limit: int = 20, db_path: Optional[Path] = None) -> List[Dict
     with get_conn(db_path) as conn:
         cur = conn.execute(
             """
-            SELECT id, image_url, title, description, keywords, board, board_id, link
+            SELECT id, image_url, title, description, keywords, board, board_id, link, source_row_json
             FROM publish_jobs
             WHERE status='ready'
             ORDER BY created_at ASC
@@ -267,7 +267,87 @@ def get_ready_jobs(limit: int = 20, db_path: Optional[Path] = None) -> List[Dict
             """,
             (limit,),
         )
-        return [dict(r) for r in cur.fetchall()]
+        rows: List[Dict[str, Any]] = []
+        for r in cur.fetchall():
+            row = dict(r)
+            source = {}
+            raw_source = row.pop("source_row_json", "") or ""
+            if raw_source:
+                try:
+                    source = json.loads(raw_source)
+                except json.JSONDecodeError:
+                    source = {}
+            merged = {
+                "job_id": int(row["id"]),
+                "id": str(source.get("id") or row["id"]),
+                "title": str(source.get("title") or row.get("title") or "").strip(),
+                "original_title": str(source.get("original_title") or source.get("title") or row.get("title") or "").strip(),
+                "description": str(source.get("description") or row.get("description") or "").strip(),
+                "keywords": str(source.get("keywords") or row.get("keywords") or "").strip(),
+                "board": str(source.get("board") or row.get("board") or "").strip(),
+                "board_id": str(source.get("board_id") or row.get("board_id") or "").strip(),
+                "kp_url": str(source.get("kp_url") or row.get("link") or "").strip(),
+                "image_url": str(source.get("image_url") or row.get("image_url") or "").strip(),
+                "publish_status": "ready",
+                "vds_upload_status": "uploaded",
+            }
+            rows.append(merged)
+        return rows
+
+
+def claim_ready_jobs(limit: int = 1, db_path: Optional[Path] = None) -> List[Dict[str, Any]]:
+    """Atomically claim ready jobs for publishing."""
+    init_db(db_path)
+    now = datetime.utcnow().isoformat(timespec="seconds")
+    with get_conn(db_path) as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        cur = conn.execute(
+            """
+            SELECT id, image_url, title, description, keywords, board, board_id, link, source_row_json
+            FROM publish_jobs
+            WHERE status='ready'
+            ORDER BY created_at ASC
+            LIMIT ?
+            """,
+            (limit,),
+        )
+        rows: List[Dict[str, Any]] = []
+        for r in cur.fetchall():
+            row = dict(r)
+            source = {}
+            raw_source = row.pop("source_row_json", "") or ""
+            if raw_source:
+                try:
+                    source = json.loads(raw_source)
+                except json.JSONDecodeError:
+                    source = {}
+            rows.append(
+                {
+                    "job_id": int(row["id"]),
+                    "id": str(source.get("id") or row["id"]),
+                    "title": str(source.get("title") or row.get("title") or "").strip(),
+                    "original_title": str(source.get("original_title") or source.get("title") or row.get("title") or "").strip(),
+                    "description": str(source.get("description") or row.get("description") or "").strip(),
+                    "keywords": str(source.get("keywords") or row.get("keywords") or "").strip(),
+                    "board": str(source.get("board") or row.get("board") or "").strip(),
+                    "board_id": str(source.get("board_id") or row.get("board_id") or "").strip(),
+                    "kp_url": str(source.get("kp_url") or row.get("link") or "").strip(),
+                    "image_url": str(source.get("image_url") or row.get("image_url") or "").strip(),
+                    "publish_status": "ready",
+                    "vds_upload_status": "uploaded",
+                }
+            )
+        if not rows:
+            conn.commit()
+            return []
+        ids = [int(r["job_id"]) for r in rows]
+        conn.executemany(
+            "UPDATE publish_jobs SET status='processing', updated_at=? WHERE id=?",
+            [(now, job_id) for job_id in ids],
+        )
+        conn.commit()
+    log_event("publish_jobs_claimed", count=len(rows), job_ids=ids)
+    return rows
 
 
 def mark_posted(job_id: int, pin_id: str, db_path: Optional[Path] = None) -> None:

@@ -4,7 +4,7 @@
 
 `kinopois` is a Python CLI tool that downloads movie posters from Kinopoisk,
 processes metadata, and exports Pinterest-ready pin rows (CSV) that feed an
-automated publishing pipeline via Google Sheets → n8n → Pinterest API.
+automated publishing pipeline via SQLite queue → n8n → Pinterest API.
 
 ## Architecture
 
@@ -16,8 +16,8 @@ data/cache/movies.csv          raw API data (kp_id, title, rating_kp, poster_url
 data/cache/movies_clean.csv    cleaned, primary_genre added
     ↓  kinopois export-movie-pins
 data/cache/pins.csv            one row per poster, all Pinterest fields
-    ↓  kinopois sync-sheets
-Google Sheets (tab: pins)      n8n reads rows, posts to Pinterest, marks posted
+    ↓  kinopois queue-sync
+SQLite queue                    n8n reads rows, posts to Pinterest, marks posted
 ```
 
 The **collage pipeline** (`kinopois run-prod`) runs in parallel and generates
@@ -33,7 +33,6 @@ independent — do not mix their output CSVs.
 | `kinopois/scraper.py` | Kinopoisk.dev API client, poster download |
 | `kinopois/processor.py` | Clean movies CSV, add `primary_genre` |
 | `kinopois/export.py` | `export_movie_pins_csv()` + collage exporters |
-| `kinopois/sheets.py` | `sync_pins_to_sheets()` — Google Sheets upsert |
 | `kinopois/db.py` | SQLite publish queue (legacy n8n path) |
 | `kinopois/collage.py` | 2×2 collage image builder |
 | `kinopois/utils.py` | `read_csv_dict`, `write_csv_dict`, `parse_rating` |
@@ -66,16 +65,15 @@ board; board_id; status; created_at; posted_at; notes
 KINOPOISK_API_KEY=          # required for download
 POSTERS_BASE_URL=           # public URL prefix for poster images (self-hosted)
 BOT_URL=                    # Telegram bot URL used in pin descriptions
-GOOGLE_CREDS_FILE=          # path to Google service account JSON
-GOOGLE_SHEETS_ID=           # spreadsheet ID (from URL)
-GOOGLE_SHEETS_TAB=pins      # worksheet tab name (default: pins)
+QUEUE_API_HOST=127.0.0.1    # local queue API host used by n8n
+QUEUE_API_PORT=8788         # local queue API port used by n8n
 ```
 
 ## Docker / deployment
 
 ```bash
 docker compose build
-docker compose run --rm kinopois run-pins --limit 200 --sync-sheets
+docker compose run --rm kinopois queue-api
 bash deploy/cron-setup.sh   # cron at 09:00 daily
 ```
 
@@ -84,9 +82,9 @@ bash deploy/cron-setup.sh   # cron at 09:00 daily
 ## Common commands
 
 ```bash
-kinopois run-pins --limit 200 --sync-sheets   # full pipeline
+kinopois run-pins --limit 200                 # full pipeline
 kinopois export-movie-pins                    # re-export pins.csv only
-kinopois sync-sheets                          # push existing pins.csv to Sheets
+kinopois queue-sync                           # import pins.csv into SQLite queue
 kinopois download --limit 200                 # download only
 kinopois process                              # clean movies.csv
 ```
@@ -98,5 +96,3 @@ kinopois process                              # clean movies.csv
 - `console.print(...)` via `rich.Console` everywhere — no bare `print()`.
 - New CLI commands go in `cli.py` using `@main.command(...)`.
 - All data helpers (`_clean_*`, `_is_*`, `_build_*`) live in `export.py`.
-- Google Sheets logic lives in `sheets.py` — import lazily to avoid hard
-  dependency when gspread is not installed.

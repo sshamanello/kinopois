@@ -63,15 +63,12 @@ venv.bak/
 
 # Project specific
 data/cache/
+data/
+work/
 *.log
 .DS_Store
 
 # Generated data files — not tracked in git
-data/posters/
-data/collages/
-data/*.db
-data/*.csv
-data/progress.json
 package-lock.json
 output.csv
 

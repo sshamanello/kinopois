@@ -230,29 +230,33 @@ def step_publish(limit: int = 1) -> Dict[str, int]:
     ok = 0
     fail = 0
     for job in jobs:
+        internal_job_id = int(job.get("job_id") or job.get("id") or 0)
         try:
             log_event(
                 "step_publish_job_started",
-                job_id=job.get("id"),
+                job_id=internal_job_id,
+                source_id=job.get("id"),
                 board_id=job.get("board_id"),
                 title=str(job.get("title") or "")[:120],
                 image_url=str(job.get("image_url") or ""),
             )
             pin_id = publish_pin(job)
-            mark_posted(job["id"], pin_id)
+            mark_posted(internal_job_id, pin_id)
             ok += 1
             log_event(
                 "step_publish_job_succeeded",
-                job_id=job.get("id"),
+                job_id=internal_job_id,
+                source_id=job.get("id"),
                 pin_id=pin_id,
                 board_id=job.get("board_id"),
             )
         except Exception as exc:
             error_text = str(exc)
-            mark_failed(job["id"], error_text)
+            mark_failed(internal_job_id, error_text)
             log_event(
                 "step_publish_job_failed",
-                job_id=job.get("id"),
+                job_id=internal_job_id,
+                source_id=job.get("id"),
                 error=error_text[:500],
             )
             fail += 1

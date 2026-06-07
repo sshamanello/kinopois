@@ -38,6 +38,7 @@ def publish_pin(job: Dict[str, Any]) -> str:
     """Publish one pin to Pinterest via REST API and return pin id."""
     token = (config.pinterest_access_token or "").strip()
     board_id = str(job.get("board_id") or config.pinterest_board_id or "").strip()
+    job_id = job.get("job_id") or job.get("id")
 
     if not token:
         raise PinterestPublishError("PINTEREST_ACCESS_TOKEN is not configured")
@@ -51,7 +52,7 @@ def publish_pin(job: Dict[str, Any]) -> str:
 
     log_event(
         "publish_pin_started",
-        job_id=job.get("id"),
+        job_id=job_id,
         board_id=board_id,
         title=title[:120],
         image_url=image_url,
@@ -74,7 +75,7 @@ def publish_pin(job: Dict[str, Any]) -> str:
         }
         log_event(
             "publish_pin_image_resolved",
-            job_id=job.get("id"),
+            job_id=job_id,
             source_type="image_base64",
             local_image=str(local_image),
         )
@@ -85,7 +86,7 @@ def publish_pin(job: Dict[str, Any]) -> str:
         }
         log_event(
             "publish_pin_image_resolved",
-            job_id=job.get("id"),
+            job_id=job_id,
             source_type="image_url",
             image_url=image_url,
         )
@@ -113,7 +114,7 @@ def publish_pin(job: Dict[str, Any]) -> str:
         detail = response.text[:1000]
         log_event(
             "publish_pin_failed",
-            job_id=job.get("id"),
+            job_id=job_id,
             status_code=response.status_code,
             error=detail[:500],
         )
@@ -122,12 +123,12 @@ def publish_pin(job: Dict[str, Any]) -> str:
     data = response.json() if response.content else {}
     pin_id = str(data.get("id") or "").strip()
     if not pin_id:
-        log_event("publish_pin_failed", job_id=job.get("id"), error="Pinterest response does not contain pin id")
+        log_event("publish_pin_failed", job_id=job_id, error="Pinterest response does not contain pin id")
         raise PinterestPublishError("Pinterest response does not contain pin id")
 
     log_event(
         "publish_pin_succeeded",
-        job_id=job.get("id"),
+        job_id=job_id,
         pin_id=pin_id,
         board_id=board_id,
         title=title[:120],

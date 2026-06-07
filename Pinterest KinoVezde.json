@@ -1,5 +1,5 @@
 {
-  "name": "Pinterest KinoVezde",
+  "name": "Pinterest KinoVezde Base64",
   "nodes": [
     {
       "parameters": {
@@ -25,51 +25,24 @@
     },
     {
       "parameters": {
-        "authentication": "serviceAccount",
-        "documentId": {
-          "__rl": true,
-          "value": "1E7NiTsLSaURmLzq286SvCEuUt5PlEq6kdEy-jE4mjw0",
-          "mode": "list",
-          "cachedResultName": "KinoPinterest",
-          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1E7NiTsLSaURmLzq286SvCEuUt5PlEq6kdEy-jE4mjw0/edit?usp=drivesdk"
-        },
-        "sheetName": {
-          "__rl": true,
-          "value": "pins",
-          "mode": "name"
-        },
-        "filtersUI": {
-          "values": [
-            {
-              "lookupColumn": "publish_status",
-              "lookupValue": "ready"
-            },
-            {
-              "lookupColumn": "vds_upload_status",
-              "lookupValue": "uploaded"
-            }
-          ]
-        },
-        "options": {}
+        "jsCode": "const row = await this.helpers.httpRequest({\n  method: 'GET',\n  url: 'http://127.0.0.1:8788/queue/next?limit=1',\n  json: true,\n});\nif (!row || !row.id) {\n  return [];\n}\nreturn [{ json: row }];\n"
       },
       "id": "7dcd00d8-7b43-46f2-9cc6-da81037830c0",
       "name": "Get ready rows",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.5,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         -1808,
         192
       ],
-      "credentials": {
-        "googleApi": {
-          "id": "Ofs0HJAih2ZMwneg",
-          "name": "Google Service Account account"
-        }
-      }
+      "continueOnFail": false,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
     },
     {
       "parameters": {
-        "jsCode": "const ready = items.filter((item) => {\n  const row = item.json;\n  const status = String(row.publish_status ?? '').trim().toLowerCase();\n  const upload = String(row.vds_upload_status ?? '').trim().toLowerCase();\n  return status === 'ready'\n    && upload === 'uploaded'\n    && Boolean(row.public_image_url || row.image_url)\n    && Boolean(row.id);\n});\n\nreturn ready.slice(0, 1);\n"
+        "jsCode": "const ready = items.filter((item) => {\n  const row = item.json;\n  const status = String(row.publish_status ?? '').trim().toLowerCase();\n  const upload = String(row.vds_upload_status ?? '').trim().toLowerCase();\n  return status === 'ready'\n    && upload === 'uploaded'\n    && Boolean(row.id)\n    && Boolean(row.title || row.original_title || row.description);\n});\n\nreturn ready.slice(0, 1);\n"
       },
       "id": "2012fe65-93e7-4cd7-9a26-3865ba5acbfd",
       "name": "Pick one publishable row",
@@ -82,14 +55,51 @@
     },
     {
       "parameters": {
-        "pinBoardId": "={{ $json.board_id || '1085930597590767480' }}",
-        "pinTitle": "={{ ($json.title || $json.original_title || 'Фильм').toString().slice(0, 100) }}",
-        "pinDescription": "={{ ($json.description || 'Сохраните этот пин с постером фильма.').toString().slice(0, 500) }}",
-        "pinLink": "={{ $json.kp_url || 'https://t.me/TopTrailer82Bot' }}",
-        "imageUrl": "={{ $json.public_image_url || $json.image_url }}"
+        "fileSelector": "={{ \"/home/nick/kinopois/data/fresh_run/posters_framed/\" + $json.id + \".jpg\" }}",
+        "options": {
+          "dataPropertyName": "data"
+        }
+      },
+      "id": "8c978234-ff20-4c76-9e5b-1398a11b2001",
+      "name": "Read image file",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        -1360,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "binaryToJson",
+        "setAllData": false,
+        "sourceKey": "data",
+        "destinationKey": "image_base64",
+        "options": {
+          "keepAsBase64": true,
+          "keepSource": false
+        }
+      },
+      "id": "ab55f49e-4376-41bc-b78f-4e5166d908e9",
+      "name": "Convert image to base64",
+      "type": "n8n-nodes-base.moveBinaryData",
+      "typeVersion": 1.1,
+      "position": [
+        -1144,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "pinBoardId": "1085930597590767480",
+        "pinTitle": "={{ (($('Pick one publishable row').item.json.title || $('Pick one publishable row').item.json.original_title || 'Фильм') + ' | KinoVezde').toString().slice(0, 100) }}",
+        "pinDescription": "={{ (($('Pick one publishable row').item.json.description || 'Сохраните этот пин с постером фильма.').toString().slice(0, 500)) }}",
+        "pinLink": "={{ $('Pick one publishable row').item.json.kp_url || 'https://t.me/TopTrailer82Bot' }}",
+        "mediaSource": "base64",
+        "base64Image": "={{ $json.image_base64 }}"
       },
       "id": "c63e87de-e969-41ac-96f3-cb67fefc5ea1",
-      "name": "Create Pinterest pin",
+      "name": "Create a pin",
       "type": "n8n-nodes-pin-interest.pinInterest",
       "typeVersion": 1,
       "position": [
@@ -98,8 +108,8 @@
       ],
       "credentials": {
         "pinInterestOAuth2Api": {
-          "id": "F0pxjtQAV06pJuzo",
-          "name": "InkMint"
+          "id": "2J7VZQl3ain7Cewo",
+          "name": "KinoVezde"
         }
       },
       "continueOnFail": true
@@ -110,17 +120,17 @@
           "options": {
             "caseSensitive": true,
             "leftValue": "",
-            "typeValidation": "strict",
+            "typeValidation": "loose",
             "version": 2
           },
           "conditions": [
             {
-              "id": "no_error",
-              "leftValue": "={{ $json.error }}",
+              "id": "pin_created",
+              "leftValue": "={{ $json.id }}",
               "rightValue": "",
               "operator": {
                 "type": "string",
-                "operation": "empty",
+                "operation": "notEmpty",
                 "singleValue": true
               }
             }
@@ -140,207 +150,33 @@
     },
     {
       "parameters": {
-        "authentication": "serviceAccount",
-        "operation": "update",
-        "documentId": {
-          "__rl": true,
-          "value": "1E7NiTsLSaURmLzq286SvCEuUt5PlEq6kdEy-jE4mjw0",
-          "mode": "list",
-          "cachedResultName": "KinoPinterest",
-          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1E7NiTsLSaURmLzq286SvCEuUt5PlEq6kdEy-jE4mjw0/edit?usp=drivesdk"
-        },
-        "sheetName": {
-          "__rl": true,
-          "value": "pins",
-          "mode": "name"
-        },
-        "columns": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "id": "={{ $('Pick one publishable row').item.json.id }}",
-            "status": "posted",
-            "publish_status": "published",
-            "posted_at": "={{ $now }}",
-            "published_at": "={{ $now }}",
-            "error_reason": ""
-          },
-          "matchingColumns": [
-            "id"
-          ],
-          "schema": [
-            {
-              "id": "id",
-              "displayName": "id",
-              "required": false,
-              "defaultMatch": true,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "status",
-              "displayName": "status",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "publish_status",
-              "displayName": "publish_status",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "posted_at",
-              "displayName": "posted_at",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "published_at",
-              "displayName": "published_at",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "error_reason",
-              "displayName": "error_reason",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": false
-        },
-        "options": {}
+        "jsCode": "const publishRow = $('Pick one publishable row').item.json;\nconst pinId = String(items[0]?.json?.id ?? items[0]?.json?.pin_id ?? '').trim();\nif (!publishRow?.job_id) {\n  throw new Error('Missing job_id for published row');\n}\nif (!pinId) {\n  throw new Error('Missing Pinterest pin id');\n}\nawait this.helpers.httpRequest({\n  method: 'POST',\n  url: 'http://127.0.0.1:8788/queue/posted',\n  headers: { 'Content-Type': 'application/json' },\n  body: { job_id: publishRow.job_id, pin_id: pinId },\n  json: true,\n});\nreturn [{ json: { ok: true, job_id: publishRow.job_id, pin_id: pinId } }];\n"
       },
       "id": "07bf04ae-3087-42f9-948b-8d0d78f7a561",
       "name": "Mark row published",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.5,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         -784,
         96
-      ],
-      "credentials": {
-        "googleApi": {
-          "id": "Ofs0HJAih2ZMwneg",
-          "name": "Google Service Account account"
-        }
-      }
+      ]
     },
     {
       "parameters": {
-        "authentication": "serviceAccount",
-        "operation": "update",
-        "documentId": {
-          "__rl": true,
-          "value": "1E7NiTsLSaURmLzq286SvCEuUt5PlEq6kdEy-jE4mjw0",
-          "mode": "list",
-          "cachedResultName": "KinoPinterest",
-          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1E7NiTsLSaURmLzq286SvCEuUt5PlEq6kdEy-jE4mjw0/edit?usp=drivesdk"
-        },
-        "sheetName": {
-          "__rl": true,
-          "value": "pins",
-          "mode": "name"
-        },
-        "columns": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "id": "={{ $('Pick one publishable row').item.json.id }}",
-            "status": "failed",
-            "publish_status": "failed",
-            "error_reason": "={{ $json.error?.message || $json.error || $json.message || 'unknown Pinterest error' }}"
-          },
-          "matchingColumns": [
-            "id"
-          ],
-          "schema": [
-            {
-              "id": "id",
-              "displayName": "id",
-              "required": false,
-              "defaultMatch": true,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "status",
-              "displayName": "status",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "publish_status",
-              "displayName": "publish_status",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "error_reason",
-              "displayName": "error_reason",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": false
-        },
-        "options": {}
+        "jsCode": "const publishRow = $('Pick one publishable row').item.json;\nconst errorText = String(items[0]?.json?.error?.message || items[0]?.json?.error || items[0]?.json?.message || 'unknown Pinterest error').trim();\nif (!publishRow?.job_id) {\n  throw new Error('Missing job_id for failed row');\n}\nawait this.helpers.httpRequest({\n  method: 'POST',\n  url: 'http://127.0.0.1:8788/queue/failed',\n  headers: { 'Content-Type': 'application/json' },\n  body: { job_id: publishRow.job_id, error: errorText },\n  json: true,\n});\nreturn [{ json: { ok: true, job_id: publishRow.job_id, error: errorText } }];\n"
       },
       "id": "e4319227-6ba9-4704-a165-a240a55d0e5a",
       "name": "Mark row failed",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.5,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         -784,
         288
-      ],
-      "credentials": {
-        "googleApi": {
-          "id": "Ofs0HJAih2ZMwneg",
-          "name": "Google Service Account account"
-        }
-      }
+      ]
     },
     {
       "parameters": {
-        "content": "## Важно\nCleanup файлов сделан отдельным workflow. Не удаляем JPG сразу после создания pin: Pinterest должен успеть забрать изображение по URL.",
+        "content": "## Важно\nPinterest получает не URL, а локальный JPG, прочитанный с диска и переведённый в base64. Так мы не зависим от внешнего image host.",
         "height": 180,
         "width": 360
       },
@@ -417,14 +253,14 @@
       "main": [
         [
           {
-            "node": "Create Pinterest pin",
+            "node": "Create a pin",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Create Pinterest pin": {
+    "Create a pin": {
       "main": [
         [
           {
@@ -463,6 +299,28 @@
           }
         ]
       ]
+    },
+    "Read image file": {
+      "main": [
+        [
+          {
+            "node": "Convert image to base64",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert image to base64": {
+      "main": [
+        [
+          {
+            "node": "Create a pin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": true,
@@ -475,7 +333,7 @@
     "templateCredsSetupCompleted": true,
     "instanceId": "2b615a4ee9dcb4fb69a3233f53ddc1715da07a2d4a50e08b96754c796cdf17ea"
   },
-  "id": "EQaU1cR58RbzO5XG",
+  "id": "a389a5da-fa34-477b-9e30-f6a609e192f4",
   "tags": [
     {
       "updatedAt": "2026-05-11T12:53:04.246Z",

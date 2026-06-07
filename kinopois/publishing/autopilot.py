@@ -18,13 +18,6 @@ from kinopois.publishing.db import get_ready_jobs, mark_failed, mark_posted
 from kinopois.publishing.eventlog import log_event
 from kinopois.publishing.pipeline_steps import run_daily_prepare, step_publish_one_job
 
-try:
-    from kinopois.publishing.sheets import sync_pins_to_sheets
-
-    _SHEETS_AVAILABLE = True
-except ImportError:
-    _SHEETS_AVAILABLE = False
-
 console = Console()
 
 
@@ -107,9 +100,6 @@ class Autopilot:
             raise RuntimeError("KINOPOISK_API_KEY is not configured")
         run_daily_prepare(limit)
 
-        if config.autopilot_sync_sheets:
-            self._sync_sheets_safe()
-
         state["harvest_done"] = True
         msg = "Daily harvest complete"
         console.print(f"[green]{msg}[/green]")
@@ -127,19 +117,20 @@ class Autopilot:
 
         for job in ready_jobs:
             ok, result = self._publish_single_job(job)
+            internal_job_id = int(job.get("job_id") or job.get("id") or 0)
             if ok:
                 pin_id = result
-                mark_posted(job["id"], pin_id)
+                mark_posted(internal_job_id, pin_id)
                 state.setdefault("posted_slots", {})[slot_key] = "posted"
                 state["posted_count"] = int(state.get("posted_count", 0)) + 1
-                console.print(f"[green]Posted job {job['id']} (pin_id={pin_id})[/green]")
-                log_event("autopilot_slot_posted", slot=slot_key, job_id=job["id"], pin_id=pin_id)
+                console.print(f"[green]Posted job {internal_job_id} (pin_id={pin_id})[/green]")
+                log_event("autopilot_slot_posted", slot=slot_key, job_id=internal_job_id, source_id=job.get("id"), pin_id=pin_id)
                 return
 
             error = result
-            mark_failed(job["id"], error[:1500])
-            log_event("autopilot_slot_job_failed", slot=slot_key, job_id=job["id"], error=error[:400])
-            self._notify(f"Publish failed for job={job['id']}: {error[:180]}")
+            mark_failed(internal_job_id, error[:1500])
+            log_event("autopilot_slot_job_failed", slot=slot_key, job_id=internal_job_id, source_id=job.get("id"), error=error[:400])
+            self._notify(f"Publish failed for job={internal_job_id}: {error[:180]}")
 
         state.setdefault("posted_slots", {})[slot_key] = "failed_all"
         console.print("[yellow]Slot ended with failures for all attempted jobs[/yellow]")
@@ -178,17 +169,6 @@ class Autopilot:
             return str(data.get("pin_id") or "").strip()
         except Exception:
             return raw.splitlines()[-1].strip()
-
-    def _sync_sheets_safe(self) -> None:
-        if not _SHEETS_AVAILABLE:
-            console.print("[yellow]gspread is not installed, sheets sync skipped[/yellow]")
-            return
-        if not config.google_sheets_id:
-            console.print("[yellow]GOOGLE_SHEETS_ID is not configured, sheets sync skipped[/yellow]")
-            return
-
-        stats = sync_pins_to_sheets(config.cache_dir / "pins.csv", upsert=False)
-        console.print(f"[green]Sheets synced: {stats.get('total', 0)} rows[/green]")
 
     def _load_state(self) -> Dict[str, Any]:
         if not self.state_path.exists():

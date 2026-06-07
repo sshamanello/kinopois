@@ -15,10 +15,10 @@ from rich.console import Console
 from kinopois.config import config
 from kinopois.download.scraper import KinopoiskScraper
 from kinopois.processing.processor import load_movies
-from kinopois.publishing.db import get_ready_jobs, mark_failed, mark_posted, sync_pins_csv
 from kinopois.publishing.eventlog import log_event
 from kinopois.publishing.export import export_movie_pins_csv
 from kinopois.publishing.pinterest import publish_pin
+from kinopois.publishing.postgres_queue import get_ready_jobs, mark_failed, mark_posted, sync_pins_csv
 from kinopois.utils import read_csv_dict, write_csv_dict
 
 console = Console()

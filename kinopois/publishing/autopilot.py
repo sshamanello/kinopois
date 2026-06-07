@@ -14,9 +14,9 @@ import requests
 from rich.console import Console
 
 from kinopois.config import config
-from kinopois.publishing.db import get_ready_jobs, mark_failed, mark_posted
 from kinopois.publishing.eventlog import log_event
 from kinopois.publishing.pipeline_steps import run_daily_prepare, step_publish_one_job
+from kinopois.publishing.postgres_queue import get_ready_jobs, mark_failed, mark_posted
 
 console = Console()
 

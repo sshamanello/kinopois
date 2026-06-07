@@ -23,14 +23,10 @@ from kinopois.processing.processor import load_clean_movies, load_movies
 from kinopois.download.scraper import KinopoiskScraper
 from kinopois.publishing.db import (
     init_db,
-    sync_pins_csv,
-    get_ready_jobs,
-    mark_posted,
-    mark_failed,
     get_conn,
     sync_all_from_csv,
-    db_counts,
 )
+from kinopois.publishing.postgres_queue import db_counts, get_ready_jobs, mark_failed, mark_posted, sync_pins_csv
 
 console = Console()
 
@@ -264,7 +260,7 @@ async def export_menu():
 
 
 async def queue_menu():
-    """SQLite queue menu for n8n/Pinterest automation."""
+    """Postgres queue menu for n8n/Pinterest automation."""
     while True:
         console.print("[bold yellow]🧰 Queue / n8n / Pinterest[/bold yellow]")
         console.print()

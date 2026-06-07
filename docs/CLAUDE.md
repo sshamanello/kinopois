@@ -4,7 +4,7 @@
 
 `kinopois` is a Python CLI tool that downloads movie posters from Kinopoisk,
 processes metadata, and exports Pinterest-ready pin rows (CSV) that feed an
-automated publishing pipeline via SQLite queue → n8n → Pinterest API.
+automated publishing pipeline via Postgres queue → n8n → Pinterest API.
 
 ## Architecture
 
@@ -17,7 +17,7 @@ data/cache/movies_clean.csv    cleaned, primary_genre added
     ↓  kinopois export-movie-pins
 data/cache/pins.csv            one row per poster, all Pinterest fields
     ↓  kinopois queue-sync
-SQLite queue                    n8n reads rows, posts to Pinterest, marks posted
+Postgres queue (`kinopois_pins`) n8n reads rows, posts to Pinterest, marks posted
 ```
 
 The **collage pipeline** (`kinopois run-prod`) runs in parallel and generates
@@ -33,7 +33,8 @@ independent — do not mix their output CSVs.
 | `kinopois/scraper.py` | Kinopoisk.dev API client, poster download |
 | `kinopois/processor.py` | Clean movies CSV, add `primary_genre` |
 | `kinopois/export.py` | `export_movie_pins_csv()` + collage exporters |
-| `kinopois/db.py` | SQLite publish queue (legacy n8n path) |
+| `kinopois/db.py` | Local CSV/SQLite cache helpers |
+| `kinopois/publishing/postgres_queue.py` | Postgres publish queue helpers |
 | `kinopois/collage.py` | 2×2 collage image builder |
 | `kinopois/utils.py` | `read_csv_dict`, `write_csv_dict`, `parse_rating` |
 
@@ -65,15 +66,18 @@ board; board_id; status; created_at; posted_at; notes
 KINOPOISK_API_KEY=          # required for download
 POSTERS_BASE_URL=           # public URL prefix for poster images (self-hosted)
 BOT_URL=                    # Telegram bot URL used in pin descriptions
-QUEUE_API_HOST=127.0.0.1    # local queue API host used by n8n
-QUEUE_API_PORT=8788         # local queue API port used by n8n
+QUEUE_DB_HOST=127.0.0.1     # local Postgres host used by n8n and kinopois
+QUEUE_DB_PORT=5432          # local Postgres port
+QUEUE_DB_NAME=pinterest     # queue database name
+QUEUE_DB_USER=pinterest     # queue database user
+QUEUE_DB_PASSWORD=...       # queue database password
 ```
 
 ## Docker / deployment
 
 ```bash
 docker compose build
-docker compose run --rm kinopois queue-api
+docker compose run --rm kinopois queue-sync
 bash deploy/cron-setup.sh   # cron at 09:00 daily
 ```
 
@@ -84,7 +88,7 @@ bash deploy/cron-setup.sh   # cron at 09:00 daily
 ```bash
 kinopois run-pins --limit 200                 # full pipeline
 kinopois export-movie-pins                    # re-export pins.csv only
-kinopois queue-sync                           # import pins.csv into SQLite queue
+kinopois queue-sync                           # import pins.csv into Postgres queue
 kinopois download --limit 200                 # download only
 kinopois process                              # clean movies.csv
 ```

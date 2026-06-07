@@ -15,7 +15,7 @@ services:
     dns:
       - 1.1.1.1
       - 8.8.8.8
-    # Default: full base pipeline with local queue sync.
+    # Default: full base pipeline with Postgres queue sync.
     # Manual/cron usage:
     # docker compose run --rm kinopois-prepare
     command: run-base-pipeline --limit 200

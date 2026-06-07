@@ -18,7 +18,6 @@ kinopois collage --watermark "@YourBot" --max-per-genre 2
 ```bash
 kinopois export-movie-pins
 kinopois queue-sync
-kinopois queue-api
 kinopois run-prod --limit 200 --max-per-genre 1
 ```
 

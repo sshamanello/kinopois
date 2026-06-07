@@ -1,4 +1,4 @@
-"""SQLite queue storage for Pinterest publishing."""
+"""SQLite storage for movie cache tables and legacy helpers."""
 
 from __future__ import annotations
 
@@ -393,8 +393,6 @@ def sync_all_from_csv(cache_dir: Optional[Path] = None, db_path: Optional[Path] 
         out["movies_clean"] = sync_movies_clean_csv(clean_csv, db_path)
     if collages_csv.exists():
         out["collages"] = sync_collages_csv(collages_csv, db_path)
-    if pins_csv.exists():
-        out["publish_jobs"] = sync_pins_csv(pins_csv, db_path)
     return out
 
 

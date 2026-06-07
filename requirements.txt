@@ -3,6 +3,7 @@
 
 click>=8.1.0
 requests>=2.31.0
+psycopg2-binary>=2.9.9
 gspread>=6.0.0
 google-auth>=2.0.0
 pillow>=10.0.0

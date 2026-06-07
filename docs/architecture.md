@@ -13,7 +13,7 @@ Kinopoisk.dev API
   -> data/cache/movies.csv
   -> data/cache/movies_clean.csv
   -> data/cache/pins.csv
-  -> SQLite queue / n8n / Pinterest API
+  -> Postgres queue (`kinopois_pins`) / n8n / Pinterest API
 ```
 
 The collage pipeline is independent from the pin-export pipeline.

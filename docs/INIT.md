@@ -1,6 +1,6 @@
 # INIT.md — Быстрый контекст kinopois
 
-> Последнее обновление: 2026-06-06
+> Последнее обновление: 2026-06-07
 
 ## Правило ведения INIT.md
 
@@ -16,6 +16,7 @@
   - доступная доска в этом аккаунте: `Кино`, `board_id = 1085930597590767480`,
   - источник ассета остаётся локальным: `Get ready rows` -> `Read image file` -> `Convert image to base64`,
   - publish-узел должен быть нативным Pinterest `Create a pin` / эквивалентной нодой с проверкой доступа к board,
+  - `Mark row published` должен брать `pin_id` из ответа `Create a pin`, а не из source row или fallback-выражений,
   - использование `board_id` от другого Pinterest-аккаунта приводит к `Forbidden - perhaps check your credentials?`.
 - Для восстановления контекста важно помнить:
   - `kinopois` публикует кино-карточки из своей очереди `kinopois_pins`,
@@ -195,12 +196,11 @@
 
 - Подтвержден критичный источник рассинхрона статусов: в одном workflow-файле n8n
   нода `Update row - failed` матчила строку по `status`, а не по `id`.
-- Добавлен локальный queue API для n8n:
-  - `kinopois queue-api`
-  - `GET /queue/next`
-  - `POST /queue/posted`
-  - `POST /queue/failed`
-- Никакие таблицы больше не участвуют в publish path.
+- Добавлен Postgres-контур очереди для n8n:
+  - таблица `kinopois_pins`
+  - n8n читает ready-row напрямую через Postgres node
+  - `Mark row published` / `Mark row failed` обновляют ту же таблицу
+- Никакие внешние HTTP-bridges больше не участвуют в publish path.
 
 ## Изменения 2026-05-11 (download hardening for transient API 403)
 

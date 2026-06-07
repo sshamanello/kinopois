@@ -30,14 +30,15 @@ from kinopois.publishing.export import (
 )
 from kinopois.publishing.db import (
     init_db,
-    sync_pins_csv,
-    get_ready_jobs,
-    mark_posted,
-    mark_failed,
     sync_all_from_csv,
-    db_counts,
 )
-from kinopois.publishing.queue_api import serve_queue_api
+from kinopois.publishing.postgres_queue import (
+    db_counts,
+    get_ready_jobs,
+    mark_failed,
+    mark_posted,
+    sync_pins_csv,
+)
 from kinopois.processing.marker import mark_posters, PosterMarker
 from kinopois.publishing.pipeline_steps import run_daily_prepare, step_publish
 from kinopois.processing.processor import load_clean_movies, load_movies
@@ -373,7 +374,7 @@ def run(ctx, run_all, limit, skip_download):
         console.print("  [cyan]kinopois collage[/cyan]        Create poster collages")
         console.print("  [cyan]kinopois download[/cyan]       Download posters only")
         console.print("  [cyan]kinopois process[/cyan]         Clean movie data")
-        console.print("  [cyan]kinopois queue-sync[/cyan]      Import pins into SQLite queue")
+        console.print("  [cyan]kinopois queue-sync[/cyan]      Import pins into Postgres queue")
         console.print("")
         console.print("Run 'kinopois --help' for all commands")
         return
@@ -568,11 +569,12 @@ def db_init_cmd():
 
 @main.command("db-sync-all")
 def db_sync_all_cmd():
-    """Sync all CSV artifacts into SQLite (movies_raw, movies_clean, collages, publish_jobs)."""
+    """Sync all CSV artifacts into local cache DBs and Postgres queue."""
     out = sync_all_from_csv(config.cache_dir)
+    inserted = sync_pins_csv(config.cache_dir / "pins.csv")
     counts = db_counts()
-    console.print(f"[green]Synced from CSV -> DB: {out}[/green]")
-    console.print(f"[cyan]DB counts:[/cyan] {counts}")
+    console.print(f"[green]Synced from CSV -> DB: {out}, queue inserted: {inserted}[/green]")
+    console.print(f"[cyan]Queue counts:[/cyan] {counts}")
 
 
 @main.command("db-stats")
@@ -589,13 +591,13 @@ def db_stats_cmd():
     help="Pins CSV path (default: data/cache/pins.csv)",
 )
 def queue_sync_cmd(pins_csv):
-    """Import/export pins.csv rows into SQLite queue with dedupe."""
+    """Import/export pins.csv rows into Postgres queue with dedupe."""
     csv_path = pins_csv or (config.cache_dir / "pins.csv")
     if not csv_path.exists():
         console.print(f"[red]Error: pins csv not found: {csv_path}[/red]")
         raise click.Abort()
     inserted = sync_pins_csv(csv_path)
-    console.print(f"[green]Queue synced, inserted: {inserted}[/green]")
+    console.print(f"[green]Queue synced to Postgres, inserted: {inserted}[/green]")
 
 
 @main.command("queue-ready")
@@ -728,14 +730,6 @@ def export_movie_pins_cmd(input_csv, output_csv, limit):
         limit=limit or None,
     )
     print_success(f"Pins exported to {output_path}")
-
-
-@main.command("queue-api")
-@click.option("--host", default=None, help="Bind host (default: QUEUE_API_HOST or 127.0.0.1)")
-@click.option("--port", default=None, type=int, help="Bind port (default: QUEUE_API_PORT or 8787)")
-def queue_api_cmd(host, port):
-    """Run the local SQLite-backed queue API for n8n."""
-    serve_queue_api(host=host, port=port)
 
 
 @main.command("menu")

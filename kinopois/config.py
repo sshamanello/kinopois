@@ -62,8 +62,12 @@ class Config:
     publish_remote_dir: str = field(default_factory=lambda: os.getenv("PUBLISH_REMOTE_DIR", "/var/www/html/pins/ready"))
     publish_remote_connect_timeout_sec: int = field(default_factory=lambda: int(os.getenv("PUBLISH_REMOTE_CONNECT_TIMEOUT_SEC", "8")))
     publish_remote_cmd_timeout_sec: int = field(default_factory=lambda: int(os.getenv("PUBLISH_REMOTE_CMD_TIMEOUT_SEC", "25")))
-    queue_api_host: str = field(default_factory=lambda: os.getenv("QUEUE_API_HOST", "127.0.0.1"))
-    queue_api_port: int = field(default_factory=lambda: int(os.getenv("QUEUE_API_PORT", "8788")))
+    queue_db_host: str = field(default_factory=lambda: os.getenv("QUEUE_DB_HOST", "127.0.0.1"))
+    queue_db_port: int = field(default_factory=lambda: int(os.getenv("QUEUE_DB_PORT", "5432")))
+    queue_db_name: str = field(default_factory=lambda: os.getenv("QUEUE_DB_NAME", "pinterest"))
+    queue_db_user: str = field(default_factory=lambda: os.getenv("QUEUE_DB_USER", "pinterest"))
+    queue_db_password: str = field(default_factory=lambda: os.getenv("QUEUE_DB_PASSWORD", ""))
+    queue_db_sslmode: str = field(default_factory=lambda: os.getenv("QUEUE_DB_SSLMODE", "disable"))
 
     # Pinterest
     pinterest_access_token: str = field(default_factory=lambda: os.getenv("PINTEREST_ACCESS_TOKEN", ""))
@@ -137,8 +141,12 @@ class Config:
             publish_remote_dir=os.getenv("PUBLISH_REMOTE_DIR", "/var/www/html/pins/ready"),
             publish_remote_connect_timeout_sec=int(os.getenv("PUBLISH_REMOTE_CONNECT_TIMEOUT_SEC", "8")),
             publish_remote_cmd_timeout_sec=int(os.getenv("PUBLISH_REMOTE_CMD_TIMEOUT_SEC", "25")),
-            queue_api_host=os.getenv("QUEUE_API_HOST", "127.0.0.1"),
-            queue_api_port=int(os.getenv("QUEUE_API_PORT", "8788")),
+            queue_db_host=os.getenv("QUEUE_DB_HOST", "127.0.0.1"),
+            queue_db_port=int(os.getenv("QUEUE_DB_PORT", "5432")),
+            queue_db_name=os.getenv("QUEUE_DB_NAME", "pinterest"),
+            queue_db_user=os.getenv("QUEUE_DB_USER", "pinterest"),
+            queue_db_password=os.getenv("QUEUE_DB_PASSWORD", ""),
+            queue_db_sslmode=os.getenv("QUEUE_DB_SSLMODE", "disable"),
             pinterest_access_token=os.getenv("PINTEREST_ACCESS_TOKEN", ""),
             pinterest_board_id=os.getenv("PINTEREST_BOARD_ID", ""),
             autopilot_enabled=os.getenv("AUTOPILOT_ENABLED", "0") == "1",

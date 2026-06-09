@@ -23,6 +23,12 @@
   - `KinoVezde` не должен ссылаться на `cf-pinterest-parser`-файлы или board ids,
   - все правки публикации и очереди должны происходить в `/Users/nick/code/kinopois`.
 
+## Изменения 2026-06-09
+
+- В workflow `Pinterest KinoVezde Base64` для Pinterest title убран хвост `| KinoVezde`.
+- В n8n теперь уходит SEO title из очереди (`title`) с fallback на `original_title`, без дополнительного брендинга.
+- Это сохраняет SEO-формулировку, которую уже генерирует Python-экспорт, и не переоптимизирует заголовок лишним суффиксом.
+
 ## Изменения 2026-05-02
 
 - Добавлен автономный scheduler для server-run без ручного участия:

@@ -101,7 +101,7 @@
         "nodeCredentialType": "pinInterestOAuth2Api",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\n  board_id: \"1085930597590767480\",\n  title: ((($('Pick one publishable row').item.json.title || $('Pick one publishable row').item.json.original_title || 'Фильм') + ' | KinoVezde').toString().slice(0, 100)),\n  description: ((($('Pick one publishable row').item.json.description || 'Сохраните этот пин с постером фильма.').toString().slice(0, 500))),\n  link: $('Pick one publishable row').item.json.tg_url || $('Pick one publishable row').item.json.link || 'https://t.me/TopTrailer82Bot',\n  media_source: {\n    source_type: \"image_base64\",\n    content_type: \"image/jpeg\",\n    data: $json.image_base64\n  }\n}) }}",
+        "jsonBody": "={{ JSON.stringify({\n  board_id: \"1085930597590767480\",\n  title: (($('Pick one publishable row').item.json.title || $('Pick one publishable row').item.json.original_title || 'Фильм').toString().replace(/\\s+/g, ' ').trim().slice(0, 100)),\n  description: ((($('Pick one publishable row').item.json.description || 'Сохраните этот пин с постером фильма.').toString().slice(0, 500))),\n  link: $('Pick one publishable row').item.json.tg_url || $('Pick one publishable row').item.json.link || 'https://t.me/TopTrailer82Bot',\n  media_source: {\n    source_type: \"image_base64\",\n    content_type: \"image/jpeg\",\n    data: $json.image_base64\n  }\n}) }}",
         "options": {}
       },
       "id": "c63e87de-e969-41ac-96f3-cb67fefc5ea1",

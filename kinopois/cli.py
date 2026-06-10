@@ -23,26 +23,29 @@ from kinopois.publishing.autopilot import Autopilot
 from kinopois.processing.collage import create_collages
 from kinopois.config import config
 from kinopois.publishing.export import (
+    build_movie_pin_rows,
     export_pinterest_csv,
     export_simple_collages_csv,
     export_summary,
     export_movie_pins_csv,
 )
 from kinopois.publishing.db import (
-    init_db,
     sync_all_from_csv,
 )
 from kinopois.publishing.postgres_queue import (
-    db_counts,
+    db_counts as queue_db_counts,
     get_ready_jobs,
+    init_db as init_queue_db,
     mark_failed,
     mark_posted,
+    sync_pin_rows,
     sync_pins_csv,
 )
 from kinopois.processing.marker import mark_posters, PosterMarker
 from kinopois.publishing.pipeline_steps import run_daily_prepare, step_publish
 from kinopois.processing.processor import load_clean_movies, load_movies
 from kinopois.download.scraper import KinopoiskScraper
+from kinopois.utils import read_csv_dict
 
 console = Console()
 
@@ -447,9 +450,9 @@ def run_prod(ctx, limit, skip_download, watermark_text, max_per_genre):
 
     print_step(5, 5, "Sync to database")
     synced = sync_all_from_csv(config.cache_dir)
-    counts = db_counts()
-    console.print(f"[cyan]DB synced:[/cyan] {synced}")
-    console.print(f"[cyan]DB counts:[/cyan] {counts}")
+    counts = queue_db_counts()
+    console.print(f"[cyan]Cache synced:[/cyan] {synced}")
+    console.print(f"[cyan]Queue counts:[/cyan] {counts}")
 
     print_success("Production pipeline complete")
 
@@ -562,17 +565,17 @@ def info(ctx):
 
 @main.command("db-init")
 def db_init_cmd():
-    """Initialize SQLite database for publish queue."""
-    path = init_db()
-    console.print(f"[green]DB initialized: {path}[/green]")
+    """Initialize Postgres publish queue schema."""
+    init_queue_db()
+    console.print("[green]Queue DB initialized[/green]")
 
 
 @main.command("db-sync-all")
 def db_sync_all_cmd():
-    """Sync all CSV artifacts into local cache DBs and Postgres queue."""
+    """Sync all CSV artifacts into local cache DBs and the Postgres publish queue."""
     out = sync_all_from_csv(config.cache_dir)
     inserted = sync_pins_csv(config.cache_dir / "pins.csv")
-    counts = db_counts()
+    counts = queue_db_counts()
     console.print(f"[green]Synced from CSV -> DB: {out}, queue inserted: {inserted}[/green]")
     console.print(f"[cyan]Queue counts:[/cyan] {counts}")
 
@@ -580,8 +583,8 @@ def db_sync_all_cmd():
 @main.command("db-stats")
 def db_stats_cmd():
     """Show current DB counts for pipeline and publish queue."""
-    counts = db_counts()
-    console.print(f"[cyan]DB counts:[/cyan] {counts}")
+    counts = queue_db_counts()
+    console.print(f"[cyan]Queue counts:[/cyan] {counts}")
 
 
 @main.command("queue-sync")
@@ -591,12 +594,13 @@ def db_stats_cmd():
     help="Pins CSV path (default: data/cache/pins.csv)",
 )
 def queue_sync_cmd(pins_csv):
-    """Import/export pins.csv rows into Postgres queue with dedupe."""
+    """Import pins.csv rows into the Postgres queue with dedupe."""
     csv_path = pins_csv or (config.cache_dir / "pins.csv")
     if not csv_path.exists():
         console.print(f"[red]Error: pins csv not found: {csv_path}[/red]")
         raise click.Abort()
-    inserted = sync_pins_csv(csv_path)
+    rows = read_csv_dict(csv_path, config.csv_delimiter, config.csv_encoding)
+    inserted = sync_pin_rows(rows)
     console.print(f"[green]Queue synced to Postgres, inserted: {inserted}[/green]")
 
 
@@ -634,7 +638,7 @@ def queue_failed_cmd(job_id, error):
 @click.option(
     "--skip-process", is_flag=True, help="Skip processing (use existing movies_clean.csv)"
 )
-@click.option("--sync-queue", is_flag=True, help="Also sync to SQLite database")
+@click.option("--sync-queue", is_flag=True, help="Also sync to Postgres queue")
 @click.pass_context
 def run_pins_cmd(ctx, limit, skip_download, skip_process, sync_queue):
     """Download movies and create Pinterest-ready pins.
@@ -675,12 +679,12 @@ def run_pins_cmd(ctx, limit, skip_download, skip_process, sync_queue):
     ctx.invoke(export_movie_pins_cmd)
 
     if sync_queue:
-        console.print("\n[cyan]Syncing to database...[/cyan]")
-        pins_path = config.cache_dir / "pins.csv"
-        inserted = sync_pins_csv(pins_path)
-        counts = db_counts()
-        console.print(f"[green]DB synced, inserted: {inserted}[/green]")
-        console.print(f"[cyan]DB counts:[/cyan] {counts}")
+        console.print("\n[cyan]Syncing to Postgres queue...[/cyan]")
+        pins_rows, _ = build_movie_pin_rows(config.cache_dir / "movies_clean.csv")
+        inserted = sync_pin_rows(pins_rows)
+        counts = queue_db_counts()
+        console.print(f"[green]Queue synced, inserted: {inserted}[/green]")
+        console.print(f"[cyan]Queue counts:[/cyan] {counts}")
 
     console.print("\n[green]✓ Done![/green]")
     console.print(f"[cyan]Pins saved to:[/cyan] {config.cache_dir / 'pins.csv'}")

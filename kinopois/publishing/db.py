@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional
 
 from kinopois.config import config
 from kinopois.publishing.eventlog import log_event
+from kinopois.publishing import postgres_queue as queue
 from kinopois.utils import read_csv_dict
 
 
@@ -74,6 +75,7 @@ def init_db(db_path: Optional[Path] = None) -> Path:
 
             CREATE TABLE IF NOT EXISTS publish_jobs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                source_id TEXT UNIQUE,
                 dedupe_key TEXT NOT NULL UNIQUE,
                 image_url TEXT NOT NULL,
                 title TEXT NOT NULL,
@@ -99,6 +101,13 @@ def init_db(db_path: Optional[Path] = None) -> Path:
             ON publish_jobs(status, created_at);
             """
         )
+        existing_columns = {
+            str(row["name"])
+            for row in conn.execute("PRAGMA table_info(publish_jobs)").fetchall()
+        }
+        if "source_id" not in existing_columns:
+            conn.execute("ALTER TABLE publish_jobs ADD COLUMN source_id TEXT;")
+        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_publish_jobs_source_id ON publish_jobs(source_id);")
     return path
 
 
@@ -123,8 +132,12 @@ def _movie_source_id(row: Dict[str, Any]) -> str:
 
 
 def sync_movies_raw_csv(csv_path: Path, db_path: Optional[Path] = None) -> int:
-    init_db(db_path)
     rows = read_csv_dict(csv_path, config.csv_delimiter, config.csv_encoding)
+    return sync_movies_raw_rows(rows, db_path=db_path)
+
+
+def sync_movies_raw_rows(rows: List[Dict[str, Any]], db_path: Optional[Path] = None) -> int:
+    init_db(db_path)
     now = datetime.utcnow().isoformat(timespec="seconds")
     inserted = 0
     with get_conn(db_path) as conn:
@@ -153,8 +166,12 @@ def sync_movies_raw_csv(csv_path: Path, db_path: Optional[Path] = None) -> int:
 
 
 def sync_movies_clean_csv(csv_path: Path, db_path: Optional[Path] = None) -> int:
-    init_db(db_path)
     rows = read_csv_dict(csv_path, config.csv_delimiter, config.csv_encoding)
+    return sync_movies_clean_rows(rows, db_path=db_path)
+
+
+def sync_movies_clean_rows(rows: List[Dict[str, Any]], db_path: Optional[Path] = None) -> int:
+    init_db(db_path)
     now = datetime.utcnow().isoformat(timespec="seconds")
     inserted = 0
     with get_conn(db_path) as conn:
@@ -184,8 +201,12 @@ def sync_movies_clean_csv(csv_path: Path, db_path: Optional[Path] = None) -> int
 
 
 def sync_collages_csv(csv_path: Path, db_path: Optional[Path] = None) -> int:
-    init_db(db_path)
     rows = read_csv_dict(csv_path, config.csv_delimiter, config.csv_encoding)
+    return sync_collages_rows(rows, db_path=db_path)
+
+
+def sync_collages_rows(rows: List[Dict[str, Any]], db_path: Optional[Path] = None) -> int:
+    init_db(db_path)
     now = datetime.utcnow().isoformat(timespec="seconds")
     inserted = 0
     with get_conn(db_path) as conn:
@@ -218,165 +239,35 @@ def sync_pins_csv(
     pins_csv: Path,
     db_path: Optional[Path] = None,
 ) -> int:
-    init_db(db_path)
+    del db_path
     rows = read_csv_dict(pins_csv, config.csv_delimiter, config.csv_encoding)
-    now = datetime.utcnow().isoformat(timespec="seconds")
-    inserted = 0
+    return queue.sync_pin_rows(rows)
 
-    with get_conn(db_path) as conn:
-        for row in rows:
-            dkey = _dedupe_key(row)
-            payload = {
-                "dedupe_key": dkey,
-                "image_url": row.get("image_url", "").strip(),
-                "title": row.get("title", "").strip(),
-                "description": row.get("description", "").strip(),
-                "keywords": row.get("keywords", "").strip(),
-                "board": row.get("board", "").strip(),
-                "board_id": row.get("board_id", "").strip(),
-                "link": row.get("link", "").strip(),
-                "source_row_json": json.dumps(row, ensure_ascii=False),
-                "created_at": now,
-                "updated_at": now,
-            }
-            cur = conn.execute(
-                """
-                INSERT OR IGNORE INTO publish_jobs
-                (dedupe_key, image_url, title, description, keywords, board, board_id, link,
-                 source_row_json, status, created_at, updated_at)
-                VALUES
-                (:dedupe_key, :image_url, :title, :description, :keywords, :board, :board_id, :link,
-                 :source_row_json, 'ready', :created_at, :updated_at)
-                """,
-                payload,
-            )
-            inserted += cur.rowcount
-    return inserted
+
+def sync_publish_job_rows(rows: List[Dict[str, Any]], db_path: Optional[Path] = None) -> int:
+    del db_path
+    return queue.sync_pin_rows(rows)
 
 
 def get_ready_jobs(limit: int = 20, db_path: Optional[Path] = None) -> List[Dict[str, Any]]:
-    init_db(db_path)
-    with get_conn(db_path) as conn:
-        cur = conn.execute(
-            """
-            SELECT id, image_url, title, description, keywords, board, board_id, link, source_row_json
-            FROM publish_jobs
-            WHERE status='ready'
-            ORDER BY created_at ASC
-            LIMIT ?
-            """,
-            (limit,),
-        )
-        rows: List[Dict[str, Any]] = []
-        for r in cur.fetchall():
-            row = dict(r)
-            source = {}
-            raw_source = row.pop("source_row_json", "") or ""
-            if raw_source:
-                try:
-                    source = json.loads(raw_source)
-                except json.JSONDecodeError:
-                    source = {}
-            merged = {
-                "job_id": int(row["id"]),
-                "id": str(source.get("id") or row["id"]),
-                "title": str(source.get("title") or row.get("title") or "").strip(),
-                "original_title": str(source.get("original_title") or source.get("title") or row.get("title") or "").strip(),
-                "description": str(source.get("description") or row.get("description") or "").strip(),
-                "keywords": str(source.get("keywords") or row.get("keywords") or "").strip(),
-                "board": str(source.get("board") or row.get("board") or "").strip(),
-                "board_id": str(source.get("board_id") or row.get("board_id") or "").strip(),
-                "kp_url": str(source.get("kp_url") or row.get("link") or "").strip(),
-                "image_url": str(source.get("image_url") or row.get("image_url") or "").strip(),
-                "publish_status": "ready",
-                "vds_upload_status": "uploaded",
-            }
-            rows.append(merged)
-        return rows
+    del db_path
+    return queue.get_ready_jobs(limit=limit)
 
 
 def claim_ready_jobs(limit: int = 1, db_path: Optional[Path] = None) -> List[Dict[str, Any]]:
     """Atomically claim ready jobs for publishing."""
-    init_db(db_path)
-    now = datetime.utcnow().isoformat(timespec="seconds")
-    with get_conn(db_path) as conn:
-        conn.execute("BEGIN IMMEDIATE")
-        cur = conn.execute(
-            """
-            SELECT id, image_url, title, description, keywords, board, board_id, link, source_row_json
-            FROM publish_jobs
-            WHERE status='ready'
-            ORDER BY created_at ASC
-            LIMIT ?
-            """,
-            (limit,),
-        )
-        rows: List[Dict[str, Any]] = []
-        for r in cur.fetchall():
-            row = dict(r)
-            source = {}
-            raw_source = row.pop("source_row_json", "") or ""
-            if raw_source:
-                try:
-                    source = json.loads(raw_source)
-                except json.JSONDecodeError:
-                    source = {}
-            rows.append(
-                {
-                    "job_id": int(row["id"]),
-                    "id": str(source.get("id") or row["id"]),
-                    "title": str(source.get("title") or row.get("title") or "").strip(),
-                    "original_title": str(source.get("original_title") or source.get("title") or row.get("title") or "").strip(),
-                    "description": str(source.get("description") or row.get("description") or "").strip(),
-                    "keywords": str(source.get("keywords") or row.get("keywords") or "").strip(),
-                    "board": str(source.get("board") or row.get("board") or "").strip(),
-                    "board_id": str(source.get("board_id") or row.get("board_id") or "").strip(),
-                    "kp_url": str(source.get("kp_url") or row.get("link") or "").strip(),
-                    "image_url": str(source.get("image_url") or row.get("image_url") or "").strip(),
-                    "publish_status": "ready",
-                    "vds_upload_status": "uploaded",
-                }
-            )
-        if not rows:
-            conn.commit()
-            return []
-        ids = [int(r["job_id"]) for r in rows]
-        conn.executemany(
-            "UPDATE publish_jobs SET status='processing', updated_at=? WHERE id=?",
-            [(now, job_id) for job_id in ids],
-        )
-        conn.commit()
-    log_event("publish_jobs_claimed", count=len(rows), job_ids=ids)
-    return rows
+    del db_path
+    return queue.claim_ready_jobs(limit=limit)
 
 
 def mark_posted(job_id: int, pin_id: str, db_path: Optional[Path] = None) -> None:
-    now = datetime.utcnow().isoformat(timespec="seconds")
-    with get_conn(db_path) as conn:
-        conn.execute(
-            """
-            UPDATE publish_jobs
-            SET status='posted', pinterest_pin_id=?, posted_at=?, updated_at=?, error=NULL
-            WHERE id=?
-            """,
-            (pin_id, now, now, job_id),
-        )
-    log_event("publish_job_marked_posted", job_id=job_id, pin_id=pin_id, posted_at=now)
+    del db_path
+    queue.mark_posted(job_id, pin_id)
 
 
 def mark_failed(job_id: int, error: str, db_path: Optional[Path] = None) -> None:
-    now = datetime.utcnow().isoformat(timespec="seconds")
-    error_text = (error or "").strip()
-    with get_conn(db_path) as conn:
-        conn.execute(
-            """
-            UPDATE publish_jobs
-            SET status='failed', error=?, retries=retries+1, updated_at=?
-            WHERE id=?
-            """,
-            (error_text[:2000], now, job_id),
-        )
-    log_event("publish_job_marked_failed", job_id=job_id, error=error_text[:500], failed_at=now)
+    del db_path
+    queue.mark_failed(job_id, error)
 
 
 def sync_all_from_csv(cache_dir: Optional[Path] = None, db_path: Optional[Path] = None) -> Dict[str, int]:
@@ -397,13 +288,5 @@ def sync_all_from_csv(cache_dir: Optional[Path] = None, db_path: Optional[Path] 
 
 
 def db_counts(db_path: Optional[Path] = None) -> Dict[str, int]:
-    init_db(db_path)
-    with get_conn(db_path) as conn:
-        return {
-            "movies_raw": conn.execute("SELECT COUNT(*) FROM movies_raw").fetchone()[0],
-            "movies_clean": conn.execute("SELECT COUNT(*) FROM movies_clean").fetchone()[0],
-            "collages": conn.execute("SELECT COUNT(*) FROM collages").fetchone()[0],
-            "ready": conn.execute("SELECT COUNT(*) FROM publish_jobs WHERE status='ready'").fetchone()[0],
-            "posted": conn.execute("SELECT COUNT(*) FROM publish_jobs WHERE status='posted'").fetchone()[0],
-            "failed": conn.execute("SELECT COUNT(*) FROM publish_jobs WHERE status='failed'").fetchone()[0],
-        }
+    del db_path
+    return queue.db_counts()

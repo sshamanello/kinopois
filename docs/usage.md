@@ -17,9 +17,11 @@ kinopois collage --watermark "@YourBot" --max-per-genre 2
 
 ```bash
 kinopois export-movie-pins
-kinopois queue-sync
+kinopois run-base-pipeline --limit 200
 kinopois run-prod --limit 200 --max-per-genre 1
 ```
+
+`export-movie-pins` remains a manual CSV export. The default publish pipeline writes straight into the Postgres queue consumed by n8n.
 
 ## Autopilot
 

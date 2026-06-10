@@ -7,7 +7,7 @@
 
 ## Pin rows
 
-The exported `pins.csv` keeps the canonical column order used by the Sheets and n8n pipeline.
+The exported `pins.csv` is now an optional snapshot. The canonical runtime queue is the Postgres `kinopois_pins` table.
 
 ## Important invariants
 
@@ -15,4 +15,3 @@ The exported `pins.csv` keeps the canonical column order used by the Sheets and 
 - `rating` is accepted only when `0 < rating <= 10`
 - cleaned rows must have `kp_id`, `title`, and `primary_genre`
 - `movies_clean.csv` field names come from the cleaned row keys and should not append `primary_genre` twice
-

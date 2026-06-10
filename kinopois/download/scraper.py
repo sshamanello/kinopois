@@ -15,6 +15,7 @@ from rich.progress import track
 
 from kinopois.config import config
 from kinopois.publishing.eventlog import log_event
+from kinopois.publishing.db import sync_movies_raw_rows
 from kinopois.utils import read_csv_dict
 
 console = Console()
@@ -238,6 +239,7 @@ class KinopoiskScraper:
 
         collected = 0
         existing_ids: set[str] = set()
+        db_rows: List[Dict[str, Any]] = []
         output_csv.parent.mkdir(parents=True, exist_ok=True)
 
         if append_mode and output_csv.exists():
@@ -323,6 +325,7 @@ class KinopoiskScraper:
 
                             data.pop("poster_preview_url", None)
                             data["poster_file"] = str(poster_path)
+                            db_rows.append(data.copy())
                             writer.writerow(data)
                             existing_ids.add(kp_id)
 
@@ -342,6 +345,10 @@ class KinopoiskScraper:
             console.print(
                 "[yellow]No new movies fetched; restored previous movies.csv snapshot[/yellow]"
             )
+
+        if db_rows:
+            inserted = sync_movies_raw_rows(db_rows)
+            log_event("download_movies_raw_synced", rows=len(db_rows), inserted=inserted)
 
         console.print(f"[green]Downloaded {collected} movies to {output_csv}[/green]")
         log_event("download_and_save_completed", output_csv=str(output_csv), collected=collected, limit=limit)

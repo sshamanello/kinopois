@@ -8,6 +8,7 @@ from PIL import Image, ImageDraw, ImageFont
 from rich.console import Console
 
 from kinopois.config import config
+from kinopois.publishing.db import sync_collages_rows
 from kinopois.processing.processor import load_clean_movies
 from kinopois.utils import safe_filename, write_csv_dict
 
@@ -223,6 +224,7 @@ def create_collages(
     if collages:
         fieldnames = ["genre", "collage_file", "film1", "film2", "film3", "film4"]
         write_csv_dict(output_csv, collages, fieldnames, config.csv_delimiter, config.csv_encoding)
+        sync_collages_rows(collages)
         console.print(f"[green]Collage metadata saved to {output_csv}[/green]")
 
     return output_csv

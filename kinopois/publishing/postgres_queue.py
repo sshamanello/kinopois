@@ -60,6 +60,10 @@ def init_db() -> None:
                     created_at text,
                     posted_at text,
                     notes text,
+                    public_image_url text,
+                    remote_image_path text,
+                    vds_upload_status text DEFAULT 'uploaded',
+                    uploaded_at text,
                     publish_status text DEFAULT 'ready',
                     posted text DEFAULT 'FALSE',
                     pin_id text,
@@ -69,6 +73,10 @@ def init_db() -> None:
                 );
                 """
             )
+            cur.execute("ALTER TABLE kinopois_pins ADD COLUMN IF NOT EXISTS public_image_url text;")
+            cur.execute("ALTER TABLE kinopois_pins ADD COLUMN IF NOT EXISTS remote_image_path text;")
+            cur.execute("ALTER TABLE kinopois_pins ADD COLUMN IF NOT EXISTS vds_upload_status text DEFAULT 'uploaded';")
+            cur.execute("ALTER TABLE kinopois_pins ADD COLUMN IF NOT EXISTS uploaded_at text;")
             cur.execute(
                 """
                 CREATE INDEX IF NOT EXISTS idx_kinopois_pins_publish_status
@@ -78,14 +86,9 @@ def init_db() -> None:
         conn.commit()
 
 
-def _is_terminal_status(status: str, posted: str) -> bool:
-    return str(posted).strip().upper() == "TRUE" or str(status).strip().lower() in {"published", "failed"}
-
-
-def sync_pins_csv(pins_csv: Path, db_path: Optional[Path] = None) -> int:
+def sync_pin_rows(rows: List[Dict[str, Any]], db_path: Optional[Path] = None) -> int:
     del db_path
     init_db()
-    rows = read_csv_dict(pins_csv, config.csv_delimiter, config.csv_encoding)
     now = datetime.utcnow().isoformat(timespec="seconds")
     inserted = 0
 
@@ -118,6 +121,10 @@ def sync_pins_csv(pins_csv: Path, db_path: Optional[Path] = None) -> int:
                     "created_at": str(row.get("created_at", "")).strip() or now,
                     "posted_at": str(row.get("posted_at", "")).strip() or "",
                     "notes": str(row.get("notes", "")).strip(),
+                    "public_image_url": str(row.get("public_image_url", "")).strip(),
+                    "remote_image_path": str(row.get("remote_image_path", "")).strip(),
+                    "vds_upload_status": str(row.get("vds_upload_status", "")).strip() or "uploaded",
+                    "uploaded_at": str(row.get("uploaded_at", "")).strip() or "",
                     "publish_status": str(row.get("publish_status", "")).strip() or "ready",
                     "posted": str(row.get("posted", "")).strip() or "FALSE",
                     "pin_id": str(row.get("pin_id", "")).strip(),
@@ -131,14 +138,16 @@ def sync_pins_csv(pins_csv: Path, db_path: Optional[Path] = None) -> int:
                     INSERT INTO kinopois_pins (
                         id, image_url, poster_url, title, original_title, year, rating, genres, primary_genre,
                         kp_url, source_type, description, keywords, category, board, board_id, status,
-                        created_at, posted_at, notes, publish_status, posted, pin_id, published_at,
+                        created_at, posted_at, notes, public_image_url, remote_image_path, vds_upload_status,
+                        uploaded_at, publish_status, posted, pin_id, published_at,
                         error_reason, updated_at
                     )
                     VALUES (
                         %(id)s, %(image_url)s, %(poster_url)s, %(title)s, %(original_title)s, %(year)s, %(rating)s,
                         %(genres)s, %(primary_genre)s, %(kp_url)s, %(source_type)s, %(description)s, %(keywords)s,
                         %(category)s, %(board)s, %(board_id)s, %(status)s, %(created_at)s, %(posted_at)s,
-                        %(notes)s, %(publish_status)s, %(posted)s, %(pin_id)s, %(published_at)s, %(error_reason)s,
+                        %(notes)s, %(public_image_url)s, %(remote_image_path)s, %(vds_upload_status)s,
+                        %(uploaded_at)s, %(publish_status)s, %(posted)s, %(pin_id)s, %(published_at)s, %(error_reason)s,
                         %(updated_at)s
                     )
                     ON CONFLICT (id) DO UPDATE SET
@@ -170,6 +179,26 @@ def sync_pins_csv(pins_csv: Path, db_path: Optional[Path] = None) -> int:
                             ELSE COALESCE(NULLIF(EXCLUDED.posted_at, ''), kinopois_pins.posted_at)
                         END,
                         notes = EXCLUDED.notes,
+                        public_image_url = CASE
+                            WHEN lower(coalesce(kinopois_pins.publish_status, '')) IN ('published', 'failed')
+                                 OR upper(coalesce(kinopois_pins.posted, '')) = 'TRUE' THEN kinopois_pins.public_image_url
+                            ELSE COALESCE(NULLIF(EXCLUDED.public_image_url, ''), kinopois_pins.public_image_url)
+                        END,
+                        remote_image_path = CASE
+                            WHEN lower(coalesce(kinopois_pins.publish_status, '')) IN ('published', 'failed')
+                                 OR upper(coalesce(kinopois_pins.posted, '')) = 'TRUE' THEN kinopois_pins.remote_image_path
+                            ELSE COALESCE(NULLIF(EXCLUDED.remote_image_path, ''), kinopois_pins.remote_image_path)
+                        END,
+                        vds_upload_status = CASE
+                            WHEN lower(coalesce(kinopois_pins.publish_status, '')) IN ('published', 'failed')
+                                 OR upper(coalesce(kinopois_pins.posted, '')) = 'TRUE' THEN kinopois_pins.vds_upload_status
+                            ELSE COALESCE(NULLIF(EXCLUDED.vds_upload_status, ''), kinopois_pins.vds_upload_status)
+                        END,
+                        uploaded_at = CASE
+                            WHEN lower(coalesce(kinopois_pins.publish_status, '')) IN ('published', 'failed')
+                                 OR upper(coalesce(kinopois_pins.posted, '')) = 'TRUE' THEN kinopois_pins.uploaded_at
+                            ELSE COALESCE(NULLIF(EXCLUDED.uploaded_at, ''), kinopois_pins.uploaded_at)
+                        END,
                         publish_status = CASE
                             WHEN lower(coalesce(kinopois_pins.publish_status, '')) IN ('published', 'failed')
                                  OR upper(coalesce(kinopois_pins.posted, '')) = 'TRUE' THEN kinopois_pins.publish_status
@@ -202,6 +231,16 @@ def sync_pins_csv(pins_csv: Path, db_path: Optional[Path] = None) -> int:
                 inserted += 1
         conn.commit()
     return inserted
+
+
+def _is_terminal_status(status: str, posted: str) -> bool:
+    return str(posted).strip().upper() == "TRUE" or str(status).strip().lower() in {"published", "failed"}
+
+
+def sync_pins_csv(pins_csv: Path, db_path: Optional[Path] = None) -> int:
+    del db_path
+    rows = read_csv_dict(pins_csv, config.csv_delimiter, config.csv_encoding)
+    return sync_pin_rows(rows, db_path=db_path)
 
 
 def get_ready_jobs(limit: int = 20, db_path: Optional[Path] = None) -> List[Dict[str, Any]]:

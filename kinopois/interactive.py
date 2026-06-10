@@ -21,12 +21,15 @@ from kinopois.publishing.export import (
 from kinopois.processing.marker import mark_posters, PosterMarker
 from kinopois.processing.processor import load_clean_movies, load_movies
 from kinopois.download.scraper import KinopoiskScraper
-from kinopois.publishing.db import (
+from kinopois.publishing.db import sync_all_from_csv
+from kinopois.publishing.postgres_queue import (
+    db_counts,
+    get_ready_jobs,
     init_db,
-    get_conn,
-    sync_all_from_csv,
+    mark_failed,
+    mark_posted,
+    sync_pins_csv,
 )
-from kinopois.publishing.postgres_queue import db_counts, get_ready_jobs, mark_failed, mark_posted, sync_pins_csv
 
 console = Console()
 
@@ -65,16 +68,13 @@ def print_status():
 
     table.add_row("Cache files", str(len(cache_files)), str(config.cache_dir))
 
-    # Queue status (SQLite)
+    # Queue status (Postgres)
     try:
         init_db()
-        with get_conn() as conn:
-            ready = conn.execute("SELECT COUNT(*) FROM publish_jobs WHERE status='ready'").fetchone()[0]
-            posted = conn.execute("SELECT COUNT(*) FROM publish_jobs WHERE status='posted'").fetchone()[0]
-            failed = conn.execute("SELECT COUNT(*) FROM publish_jobs WHERE status='failed'").fetchone()[0]
-        table.add_row("Queue ready", str(ready), str(config.cache_dir / 'kinopois.db'))
-        table.add_row("Queue posted", str(posted), str(config.cache_dir / 'kinopois.db'))
-        table.add_row("Queue failed", str(failed), str(config.cache_dir / 'kinopois.db'))
+        counts = db_counts()
+        table.add_row("Queue ready", str(counts.get("ready", 0)), f"{config.queue_db_host}:{config.queue_db_port}/{config.queue_db_name}")
+        table.add_row("Queue posted", str(counts.get("posted", 0)), f"{config.queue_db_host}:{config.queue_db_port}/{config.queue_db_name}")
+        table.add_row("Queue failed", str(counts.get("failed", 0)), f"{config.queue_db_host}:{config.queue_db_port}/{config.queue_db_name}")
     except Exception:
         pass
 
@@ -260,7 +260,7 @@ async def export_menu():
 
 
 async def queue_menu():
-    """Postgres queue menu for n8n/Pinterest automation."""
+    """Local queue menu for Pinterest automation."""
     while True:
         console.print("[bold yellow]🧰 Queue / n8n / Pinterest[/bold yellow]")
         console.print()
@@ -268,9 +268,9 @@ async def queue_menu():
         action = await questionary.select(
             "Queue action:",
             choices=[
-                questionary.Choice("🗄️ Init DB", "init"),
+                questionary.Choice("🗄️ Init queue DB", "init"),
                 questionary.Choice("🔄 Sync ALL CSV -> DB", "sync_all"),
-                questionary.Choice("🔄 Sync pins.csv -> queue", "sync"),
+                questionary.Choice("🔄 Sync pins.csv -> Postgres", "sync"),
                 questionary.Choice("📊 DB stats", "stats"),
                 questionary.Choice("📋 Show ready jobs", "ready"),
                 questionary.Choice("✅ Mark job posted", "posted"),
@@ -284,7 +284,7 @@ async def queue_menu():
 
         if action == "init":
             path = init_db()
-            console.print(f"[green]✓ DB initialized: {path}[/green]")
+            console.print("[green]✓ Queue DB initialized[/green]")
 
         elif action == "sync_all":
             out = sync_all_from_csv(config.cache_dir)
@@ -296,10 +296,10 @@ async def queue_menu():
                 console.print(f"[red]Error: {pins_csv} not found. Run Export first.[/red]")
             else:
                 inserted = sync_pins_csv(pins_csv)
-                console.print(f"[green]✓ Synced queue. Inserted: {inserted}[/green]")
+                console.print(f"[green]✓ Synced queue to Postgres. Inserted: {inserted}[/green]")
 
         elif action == "stats":
-            console.print(f"[cyan]DB counts:[/cyan] {db_counts()}")
+            console.print(f"[cyan]Queue counts:[/cyan] {db_counts()}")
 
         elif action == "ready":
             limit_str = await questionary.text("Limit:", default="20").ask_async()

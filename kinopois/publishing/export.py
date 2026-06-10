@@ -12,6 +12,7 @@ from rich.console import Console
 
 from kinopois.config import config
 from kinopois.processing.frame import render_framed_poster
+from kinopois.publishing.postgres_queue import sync_pin_rows
 from kinopois.utils import read_csv_dict, safe_filename, write_csv_dict
 
 console = Console()
@@ -215,29 +216,24 @@ _MOVIE_PIN_FIELDNAMES = [
 ]
 
 
-def export_movie_pins_csv(
+def build_movie_pin_rows(
     input_csv: Path,
-    output_csv: Optional[Path] = None,
     limit: Optional[int] = None,
     posters_dir: Optional[Path] = None,
-) -> Path:
-    """Export individual movie posters as Pinterest pins CSV.
+) -> tuple[List[Dict[str, Any]], Dict[str, int]]:
+    """Build individual movie poster pin rows from cleaned movie CSV.
 
     Each movie in movies_clean.csv becomes one pin row.
     Rows with missing kp_id/title/genre or absent poster file are skipped.
 
     Args:
         input_csv: Path to movies_clean.csv.
-        output_csv: Output path. Defaults to cache_dir/pins.csv.
         limit: Max valid pins to export (counts exported rows, not rows read).
         posters_dir: Override posters directory. Defaults to config.posters_dir.
 
     Returns:
-        Path to written CSV.
+        Tuple of (rows, skip_stats).
     """
-    if output_csv is None:
-        output_csv = config.cache_dir / "pins.csv"
-
     now_str = datetime.now().isoformat(timespec="seconds")
     rows = read_csv_dict(input_csv, config.csv_delimiter, config.csv_encoding)
 
@@ -329,7 +325,27 @@ def export_movie_pins_csv(
             "error_reason": "",
         })
 
+    return pins, skip
+
+
+def export_movie_pins_csv(
+    input_csv: Path,
+    output_csv: Optional[Path] = None,
+    limit: Optional[int] = None,
+    posters_dir: Optional[Path] = None,
+) -> Path:
+    """Export individual movie posters as Pinterest pins CSV."""
+    if output_csv is None:
+        output_csv = config.cache_dir / "pins.csv"
+
+    pins, skip = build_movie_pin_rows(
+        input_csv=input_csv,
+        limit=limit,
+        posters_dir=posters_dir,
+    )
     write_csv_dict(output_csv, pins, _MOVIE_PIN_FIELDNAMES, config.csv_delimiter, config.csv_encoding)
+    if pins:
+        sync_pin_rows(pins)
 
     skipped_total = sum(skip.values())
     console.print(

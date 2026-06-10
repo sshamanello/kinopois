@@ -3,8 +3,8 @@
 ## Project summary
 
 `kinopois` is a Python CLI tool that downloads movie posters from Kinopoisk,
-processes metadata, and exports Pinterest-ready pin rows (CSV) that feed an
-automated publishing pipeline via Postgres queue → n8n → Pinterest API.
+processes metadata, and writes Pinterest-ready pin rows directly into the
+Postgres publish queue (`kinopois_pins`) that feeds n8n / autopilot / Pinterest API.
 
 ## Architecture
 
@@ -14,11 +14,12 @@ Kinopoisk.dev API
 data/cache/movies.csv          raw API data (kp_id, title, rating_kp, poster_url…)
     ↓  kinopois process
 data/cache/movies_clean.csv    cleaned, primary_genre added
-    ↓  kinopois export-movie-pins
-data/cache/pins.csv            one row per poster, all Pinterest fields
-    ↓  kinopois queue-sync
-Postgres queue (`kinopois_pins`) n8n reads rows, posts to Pinterest, marks posted
+    ↓  kinopois run-base-pipeline
+Postgres queue (`kinopois_pins`) reads rows, n8n posts to Pinterest, marks posted
 ```
+
+`export-movie-pins` is still available as an explicit CSV export command, but
+it is no longer part of the default publish path.
 
 The **collage pipeline** (`kinopois run-prod`) runs in parallel and generates
 `data/collages/` images + `data/cache/collages.csv`. Both pipelines are
@@ -32,9 +33,9 @@ independent — do not mix their output CSVs.
 | `kinopois/config.py` | Dataclass config, env vars, `config` singleton |
 | `kinopois/scraper.py` | Kinopoisk.dev API client, poster download |
 | `kinopois/processor.py` | Clean movies CSV, add `primary_genre` |
-| `kinopois/export.py` | `export_movie_pins_csv()` + collage exporters |
+| `kinopois/export.py` | `build_movie_pin_rows()` + `export_movie_pins_csv()` + collage exporters |
 | `kinopois/db.py` | Local CSV/SQLite cache helpers |
-| `kinopois/publishing/postgres_queue.py` | Postgres publish queue helpers |
+| `kinopois/publishing/postgres_queue.py` | Publish queue helpers for `kinopois_pins` |
 | `kinopois/collage.py` | 2×2 collage image builder |
 | `kinopois/utils.py` | `read_csv_dict`, `write_csv_dict`, `parse_rating` |
 
@@ -66,19 +67,19 @@ board; board_id; status; created_at; posted_at; notes
 KINOPOISK_API_KEY=          # required for download
 POSTERS_BASE_URL=           # public URL prefix for poster images (self-hosted)
 BOT_URL=                    # Telegram bot URL used in pin descriptions
-QUEUE_DB_HOST=127.0.0.1     # local Postgres host used by n8n and kinopois
-QUEUE_DB_PORT=5432          # local Postgres port
-QUEUE_DB_NAME=pinterest     # queue database name
-QUEUE_DB_USER=pinterest     # queue database user
-QUEUE_DB_PASSWORD=...       # queue database password
+PUBLISH_IMAGES_BASE_URL=    # public URL prefix for ready-to-publish images
+PUBLISH_REMOTE_SYNC_ENABLED=0
+PUBLISH_REMOTE_HOST=       # optional remote mirror for publish-ready images
 ```
+
+The runtime publish queue is the Postgres table `kinopois_pins`.
 
 ## Docker / deployment
 
 ```bash
 docker compose build
-docker compose run --rm kinopois queue-sync
-bash deploy/cron-setup.sh   # cron at 09:00 daily
+docker compose run --rm kinopois-prepare run-base-pipeline --limit 200
+bash deploy/cron-setup.sh   # cron at 21:00 daily
 ```
 
 `data/` and `credentials/` are volume-mounted — never baked into the image.
@@ -86,9 +87,8 @@ bash deploy/cron-setup.sh   # cron at 09:00 daily
 ## Common commands
 
 ```bash
-kinopois run-pins --limit 200                 # full pipeline
+kinopois run-base-pipeline --limit 200        # full pipeline -> Postgres queue
 kinopois export-movie-pins                    # re-export pins.csv only
-kinopois queue-sync                           # import pins.csv into Postgres queue
 kinopois download --limit 200                 # download only
 kinopois process                              # clean movies.csv
 ```

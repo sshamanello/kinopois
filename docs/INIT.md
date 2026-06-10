@@ -2,6 +2,14 @@
 
 > Последнее обновление: 2026-06-07
 
+## Изменения 2026-06-10
+
+- Выровнен publish-контракт с live n8n workflow:
+  - каноническая очередь публикации снова `kinopois_pins` в Postgres,
+  - `run-base-pipeline`, `pins`, `queue-sync`, `autopilot` и interactive queue menu работают через `kinopois/publishing/postgres_queue.py`,
+  - локальная SQLite-очередь больше не является горячим путём публикации.
+- Обновлены CLI-подсказки и документация под Postgres-очередь.
+
 ## Правило ведения INIT.md
 
 - При любом изменении проекта обновлять `INIT.md` в том же коммите.
@@ -71,7 +79,7 @@
 ## Важно
 
 - Если `AUTOPILOT_PUBLISH_COMMAND` пустой, harvest/queue будут работать, но слот публикации будет помечаться как skip.
-- Для полностью автономной публикации нужен рабочий publish hook (или внешний n8n, который читает локальную очередь и постит сам).
+- Для полностью автономной публикации нужен рабочий publish hook (или внешний n8n, который читает `kinopois_pins` и постит сам).
 
 ## Изменения 2026-05-02 (рамочные креативы)
 
@@ -157,7 +165,7 @@
   - добавлены high-intent шаблоны (`что посмотреть`, `фильм на вечер`, `топ находка`, `сохраните в подборку`),
   - добавлена нормализация жанров в более естественные SEO-формы (`драмы`, `боевики`, `короткометражные фильмы` и т.п.),
   - заголовки ограничены 100 символами.
-- Текущая очередь `publish_jobs` для `ready/failed` переписана вручную на v2 SEO titles.
+- Текущая очередь `kinopois_pins` для `ready/failed` переписана вручную на v2 SEO titles.
 
 ## Изменения 2026-05-02 (SEO descriptions v2 — current + future)
 
@@ -165,7 +173,7 @@
   - high-intent формулировки (`что посмотреть вечером/сегодня`, `сохраняйте пин`, `подборка`),
   - встроенный CTA в Telegram-бот (`BOT_URL`),
   - включение жанра / года / рейтинга для поисковой релевантности.
-- Текущая очередь `publish_jobs` (`ready/failed`) переписана вручную на новый SEO-формат description.
+- Текущая очередь `kinopois_pins` (`ready/failed`) переписана вручную на новый SEO-формат description.
 
 ## Изменения 2026-05-11 (modular base architecture skeleton)
 
@@ -247,13 +255,13 @@
 - `step_upload_to_server()` усилен fallback-логикой:
   - если локальный source-постер не найден, выполняется докачка по `poster_url`,
     затем файл отправляется в publish-контур.
-- Добавлен selective sync upload-полей в локальную очередь:
+- Добавлен selective sync upload-полей в Postgres очередь:
   - `sync_upload_fields_to_queue()` обновляет по `id` только:
     `image_url`, `public_image_url`, `remote_image_path`,
     `vds_upload_status`, `uploaded_at`, `publish_status`, `error_reason`.
 - Добавлена CLI-команда:
   - `kinopois backfill-assets --limit 200`
-  - выполняет prepare + selective upload-fields sync в локальную очередь.
+  - выполняет prepare + selective upload-fields sync в Postgres очередь.
 
 ## Изменения 2026-05-11 (stable auto-copy after processing)
 
@@ -344,7 +352,7 @@
 
 ## Изменения 2026-05-21 (stable full-cycle prod mode)
 
-- `run-base-pipeline` теперь завершает prepare и, при необходимости, отдельный publish step через локальную очередь.
+- `run-base-pipeline` теперь завершает prepare и, при необходимости, отдельный publish step через Postgres queue.
 - `deploy/cron-setup.sh` переведён на production-safe поведение:
   - дефолтный запуск в `21:00` (`CRON_TZ=Europe/Moscow`);
   - лог в `data/logs/cron.log`;

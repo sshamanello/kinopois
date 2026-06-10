@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 from rich.console import Console
 
 from kinopois.config import config
+from kinopois.publishing.db import sync_movies_clean_rows
 from kinopois.utils import get_primary_genre, parse_rating, read_csv_dict, safe_filename, write_csv_dict
 
 console = Console()
@@ -67,6 +68,8 @@ class MovieProcessor:
         else:
             fieldnames = []
         write_csv_dict(output_csv, cleaned, fieldnames, config.csv_delimiter, config.csv_encoding)
+        if cleaned:
+            sync_movies_clean_rows(cleaned)
 
         console.print(f"[green]Cleaned data saved to {output_csv} ({len(cleaned)} movies)[/green]")
         return output_csv

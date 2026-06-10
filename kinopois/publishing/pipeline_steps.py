@@ -7,7 +7,7 @@ import subprocess
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List
 
 import requests
 from rich.console import Console
@@ -16,10 +16,14 @@ from kinopois.config import config
 from kinopois.download.scraper import KinopoiskScraper
 from kinopois.processing.processor import load_movies
 from kinopois.publishing.eventlog import log_event
-from kinopois.publishing.export import export_movie_pins_csv
+from kinopois.publishing.export import build_movie_pin_rows
 from kinopois.publishing.pinterest import publish_pin
-from kinopois.publishing.postgres_queue import get_ready_jobs, mark_failed, mark_posted, sync_pins_csv
-from kinopois.utils import read_csv_dict, write_csv_dict
+from kinopois.publishing.postgres_queue import (
+    get_ready_jobs,
+    mark_failed,
+    mark_posted,
+    sync_pin_rows,
+)
 
 console = Console()
 
@@ -79,16 +83,30 @@ def step_process(input_csv: Path) -> Path:
     return out
 
 
-def step_export(clean_csv: Path) -> Path:
-    log_event("step_export_started", input_csv=str(clean_csv))
-    out = export_movie_pins_csv(input_csv=clean_csv, output_csv=config.cache_dir / "pins.csv")
-    log_event("step_export_completed", output_csv=str(out))
-    return out
+def step_build_movie_pin_rows(clean_csv: Path) -> List[Dict[str, Any]]:
+    log_event("step_build_pins_started", input_csv=str(clean_csv))
+    pins, skip = build_movie_pin_rows(clean_csv)
+    skipped_total = sum(skip.values())
+    log_event(
+        "step_build_pins_completed",
+        pins=len(pins),
+        skipped=skipped_total,
+        invalid=skip["invalid"],
+        missing_poster=skip["missing_poster"],
+        duplicate=skip["duplicate"],
+    )
+    console.print(
+        f"[green]Built {len(pins)} pin rows[/green] "
+        f"([yellow]{skipped_total} skipped: "
+        f"{skip['invalid']} invalid, "
+        f"{skip['missing_poster']} missing poster, "
+        f"{skip['duplicate']} duplicates[/yellow])"
+    )
+    return pins
 
 
-def step_upload_to_server(pins_csv: Path) -> Dict[str, int]:
-    log_event("step_upload_started", pins_csv=str(pins_csv))
-    rows = read_csv_dict(pins_csv, config.csv_delimiter, config.csv_encoding)
+def step_upload_to_server(rows: List[Dict[str, Any]]) -> Dict[str, int]:
+    log_event("step_upload_started", row_count=len(rows))
     uploaded = 0
     failed = 0
     skipped = 0
@@ -151,10 +169,6 @@ def step_upload_to_server(pins_csv: Path) -> Dict[str, int]:
             row["publish_status"] = "ready"
         row["error_reason"] = ""
         uploaded += 1
-
-    fieldnames = list(rows[0].keys()) if rows else []
-    if fieldnames:
-        write_csv_dict(pins_csv, rows, fieldnames, config.csv_delimiter, config.csv_encoding)
 
     stats = {"uploaded": uploaded, "failed": failed, "skipped": skipped, "total": len(rows)}
     log_event("step_upload_completed", **stats)
@@ -219,8 +233,18 @@ def step_cleanup_publish_dir() -> Dict[str, int]:
 
 def step_queue_sync(pins_csv: Path) -> int:
     log_event("step_queue_sync_started", pins_csv=str(pins_csv))
-    inserted = sync_pins_csv(pins_csv)
+    from kinopois.utils import read_csv_dict
+
+    rows = read_csv_dict(pins_csv, config.csv_delimiter, config.csv_encoding)
+    inserted = sync_pin_rows(rows)
     log_event("step_queue_sync_completed", inserted=inserted)
+    return inserted
+
+
+def step_queue_sync_rows(rows: List[Dict[str, Any]]) -> int:
+    log_event("step_queue_sync_rows_started", row_count=len(rows))
+    inserted = sync_pin_rows(rows)
+    log_event("step_queue_sync_rows_completed", inserted=inserted)
     return inserted
 
 
@@ -273,19 +297,19 @@ def run_daily_prepare(limit: int) -> Dict[str, int]:
     log_event("run_daily_prepare_started", limit=limit)
     movies_csv = step_download(limit)
     clean_csv = step_process(movies_csv)
-    pins_csv = step_export(clean_csv)
-    upload_stats = step_upload_to_server(pins_csv)
+    pin_rows = step_build_movie_pin_rows(clean_csv)
+    upload_stats = step_upload_to_server(pin_rows)
+    queue_refreshed = step_queue_sync_rows(pin_rows)
     cleanup_stats = step_cleanup_publish_dir()
-    inserted = step_queue_sync(pins_csv)
     console.print(
-        f"[green]Daily prepare done[/green]: upload={upload_stats}, cleanup={cleanup_stats}, queue_inserted={inserted}"
+        f"[green]Daily prepare done[/green]: upload={upload_stats}, cleanup={cleanup_stats}, queue_refreshed={queue_refreshed}"
     )
     stats = {
         "download_limit": limit,
         "uploaded": upload_stats["uploaded"],
         "upload_failed": upload_stats["failed"],
         "publish_dir_deleted": cleanup_stats["deleted"],
-        "queue_inserted": inserted,
+        "queue_refreshed": queue_refreshed,
     }
     log_event("run_daily_prepare_completed", **stats)
     return stats

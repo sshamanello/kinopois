@@ -17,10 +17,10 @@ docs/            Full project documentation
 
 ## Main flow
 
-1. `kinopois download` pulls raw movie data into `data/cache/movies.csv`
-2. `kinopois process` cleans the dataset into `data/cache/movies_clean.csv`
-3. `kinopois export-movie-pins` builds `data/cache/pins.csv`
-4. `kinopois queue-sync` imports `pins.csv` into the Postgres queue (`kinopois_pins`)
+1. `kinopois download` pulls raw movie data, writes posters, and syncs rows into the local cache DB
+2. `kinopois process` cleans the dataset and syncs cleaned rows into the local cache DB
+3. `kinopois run-base-pipeline` builds publishable rows and syncs them into the Postgres publish queue (`kinopois_pins`)
+4. `kinopois export-movie-pins` is still available as an explicit CSV export if you need a snapshot
 
 The collage pipeline is separate and writes `data/collages/` plus `data/cache/collages.csv`.
 
@@ -38,7 +38,7 @@ pip install -e .
 kinopois download --limit 200
 kinopois process
 kinopois export-movie-pins
-kinopois queue-sync
+kinopois run-base-pipeline --limit 200
 kinopois run-prod --limit 200 --max-per-genre 1
 ```
 
@@ -50,12 +50,13 @@ Copy `.env.example` to `.env` and set at least:
 KINOPOISK_API_KEY=...
 PINTEREST_ACCESS_TOKEN=...
 PINTEREST_BOARD_ID=...
-QUEUE_DB_HOST=127.0.0.1
-QUEUE_DB_PORT=5432
-QUEUE_DB_NAME=pinterest
-QUEUE_DB_USER=pinterest
-QUEUE_DB_PASSWORD=...
+POSTERS_BASE_URL=https://your-domain.example/posters
+FRAMED_POSTERS_BASE_URL=https://your-domain.example/posters_framed
+PUBLISH_IMAGES_BASE_URL=https://your-domain.example/pins/ready
+PUBLISH_REMOTE_SYNC_ENABLED=0
 ```
+
+The publish queue lives in Postgres (`kinopois_pins`) and is read by n8n.
 
 ## Documentation
 

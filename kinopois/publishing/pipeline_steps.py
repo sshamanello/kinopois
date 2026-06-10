@@ -16,7 +16,7 @@ from kinopois.config import config
 from kinopois.download.scraper import KinopoiskScraper
 from kinopois.processing.processor import load_movies
 from kinopois.publishing.eventlog import log_event
-from kinopois.publishing.export import build_movie_pin_rows
+from kinopois.publishing.movie_pins import build_movie_pin_rows
 from kinopois.publishing.pinterest import publish_pin
 from kinopois.publishing.postgres_queue import (
     get_ready_jobs,

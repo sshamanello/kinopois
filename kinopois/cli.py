@@ -27,13 +27,8 @@ from kinopois.processing.marker import mark_posters, PosterMarker
 from kinopois.processing.processor import load_clean_movies, load_movies
 from kinopois.publishing.autopilot import Autopilot
 from kinopois.publishing.db import sync_all_from_csv
-from kinopois.publishing.export import (
-    build_movie_pin_rows,
-    export_movie_pins_csv,
-    export_pinterest_csv,
-    export_simple_collages_csv,
-    export_summary,
-)
+from kinopois.publishing.movie_pins import build_movie_pin_rows, export_movie_pins_csv
+from kinopois.publishing.collage_export import export_pinterest_csv, export_simple_collages_csv, export_summary
 from kinopois.publishing.pipeline_steps import run_daily_prepare, step_publish
 from kinopois.publishing.postgres_queue import (
     db_counts as queue_db_counts,

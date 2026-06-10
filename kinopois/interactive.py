@@ -13,7 +13,8 @@ from kinopois import __version__
 from kinopois.cli import main as cli_main
 from kinopois.processing.collage import create_collages
 from kinopois.config import config
-from kinopois.publishing.export import (
+from kinopois.utils import read_csv_dict
+from kinopois.publishing.collage_export import (
     export_pinterest_csv,
     export_simple_collages_csv,
     export_summary,
@@ -28,7 +29,7 @@ from kinopois.publishing.postgres_queue import (
     init_db,
     mark_failed,
     mark_posted,
-    sync_pins_csv,
+    sync_pin_rows,
 )
 
 console = Console()
@@ -295,7 +296,7 @@ async def queue_menu():
             if not pins_csv.exists():
                 console.print(f"[red]Error: {pins_csv} not found. Run Export first.[/red]")
             else:
-                inserted = sync_pins_csv(pins_csv)
+                inserted = sync_pin_rows(read_csv_dict(pins_csv, config.csv_delimiter, config.csv_encoding))
                 console.print(f"[green]✓ Synced queue to Postgres. Inserted: {inserted}[/green]")
 
         elif action == "stats":

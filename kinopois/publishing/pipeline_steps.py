@@ -24,6 +24,9 @@ from kinopois.publishing.postgres_queue import (
     mark_posted,
     sync_pin_rows,
 )
+from kinopois.logging_setup import get_logger
+
+logger = get_logger(__name__)
 
 console = Console()
 
@@ -69,17 +72,21 @@ def _scp_to_remote(local_path: Path, kp_id: str) -> tuple[bool, str]:
 
 def step_download(limit: int) -> Path:
     log_event("step_download_started", limit=limit)
+    logger.info("step_download started (limit=%d)", limit)
     scraper = KinopoiskScraper(config.kinopoisk_api_key)
     out = scraper.download_and_save(output_csv=config.cache_dir / "movies.csv", limit=limit, append_mode=True)
     log_event("step_download_completed", output_csv=str(out))
+    logger.info("step_download completed: %s", out)
     return out
 
 
 def step_process(input_csv: Path) -> Path:
     log_event("step_process_started", input_csv=str(input_csv))
+    logger.info("step_process started: %s", input_csv)
     processor = load_movies(input_csv)
     out = processor.clean(config.cache_dir / "movies_clean.csv")
     log_event("step_process_completed", output_csv=str(out))
+    logger.info("step_process completed: %s", out)
     return out
 
 
@@ -107,6 +114,7 @@ def step_build_movie_pin_rows(clean_csv: Path) -> List[Dict[str, Any]]:
 
 def step_upload_to_server(rows: List[Dict[str, Any]]) -> Dict[str, int]:
     log_event("step_upload_started", row_count=len(rows))
+    logger.info("step_upload started (%d rows)", len(rows))
     uploaded = 0
     failed = 0
     skipped = 0
@@ -250,6 +258,7 @@ def step_queue_sync_rows(rows: List[Dict[str, Any]]) -> int:
 
 def step_publish(limit: int = 1) -> Dict[str, int]:
     log_event("step_publish_started", limit=limit)
+    logger.info("step_publish started (limit=%d)", limit)
     jobs = get_ready_jobs(limit=max(1, limit))
     ok = 0
     fail = 0
@@ -295,6 +304,7 @@ def step_publish_one_job(job: Dict[str, str]) -> str:
 
 def run_daily_prepare(limit: int) -> Dict[str, int]:
     log_event("run_daily_prepare_started", limit=limit)
+    logger.info("run_daily_prepare started (limit=%d)", limit)
     movies_csv = step_download(limit)
     clean_csv = step_process(movies_csv)
     pin_rows = step_build_movie_pin_rows(clean_csv)
@@ -312,4 +322,5 @@ def run_daily_prepare(limit: int) -> Dict[str, int]:
         "queue_refreshed": queue_refreshed,
     }
     log_event("run_daily_prepare_completed", **stats)
+    logger.info("run_daily_prepare completed: %s", stats)
     return stats

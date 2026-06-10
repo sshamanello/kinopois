@@ -11,6 +11,8 @@ from kinopois.config import config
 from kinopois.publishing.db import sync_collages_rows
 from kinopois.processing.processor import load_clean_movies
 from kinopois.utils import safe_filename, write_csv_dict
+from kinopois.logging_setup import get_logger
+logger = get_logger(__name__)
 
 console = Console()
 

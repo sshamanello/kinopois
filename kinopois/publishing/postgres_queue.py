@@ -16,6 +16,8 @@ from psycopg2.extras import RealDictCursor
 from kinopois.config import config
 from kinopois.publishing.eventlog import log_event
 from kinopois.utils import read_csv_dict
+from kinopois.logging_setup import get_logger
+logger = get_logger(__name__)
 
 
 # ── Connection helpers ────────────────────────────────────────────────────────

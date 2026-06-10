@@ -18,6 +18,8 @@ from kinopois.config import config
 from kinopois.processing.frame import render_framed_poster
 from kinopois.publishing.postgres_queue import sync_pin_rows
 from kinopois.utils import read_csv_dict, write_csv_dict
+from kinopois.logging_setup import get_logger
+logger = get_logger(__name__)
 
 console = Console()
 

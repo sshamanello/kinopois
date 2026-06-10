@@ -17,6 +17,8 @@ from kinopois.config import config
 from kinopois.publishing.eventlog import log_event
 from kinopois.publishing.postgres_queue import get_ready_jobs, mark_failed, mark_posted
 from kinopois.publishing.pipeline_steps import run_daily_prepare, step_publish_one_job
+from kinopois.logging_setup import get_logger
+logger = get_logger(__name__)
 
 console = Console()
 

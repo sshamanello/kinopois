@@ -17,6 +17,8 @@ from kinopois.config import config
 from kinopois.publishing.eventlog import log_event
 from kinopois.publishing.db import sync_movies_raw_rows
 from kinopois.utils import read_csv_dict
+from kinopois.logging_setup import get_logger
+logger = get_logger(__name__)
 
 console = Console()
 

@@ -10,6 +10,8 @@ from rich.console import Console
 from kinopois.config import config
 from kinopois.publishing.db import sync_movies_clean_rows
 from kinopois.utils import get_primary_genre, parse_rating, read_csv_dict, safe_filename, write_csv_dict
+from kinopois.logging_setup import get_logger
+logger = get_logger(__name__)
 
 console = Console()
 

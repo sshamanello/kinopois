@@ -52,6 +52,10 @@ class MovieProcessor:
             if not poster_file or not genres:
                 continue
 
+            # Normalize path separators (CSV may contain Windows-style backslashes)
+            poster_file = poster_file.replace("\\", "/")
+            movie["poster_file"] = poster_file
+
             # Check if poster file exists
             if not Path(poster_file).exists():
                 continue

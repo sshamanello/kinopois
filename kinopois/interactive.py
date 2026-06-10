@@ -1,27 +1,25 @@
 """Interactive CLI menu with keyboard navigation."""
 
+import shutil
 from pathlib import Path
 from typing import Optional
 
-import click
 import questionary
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
 from kinopois import __version__
-from kinopois.cli import main as cli_main
-from kinopois.processing.collage import create_collages
 from kinopois.config import config
-from kinopois.utils import read_csv_dict
+from kinopois.download.scraper import KinopoiskScraper
+from kinopois.processing.collage import create_collages
+from kinopois.processing.marker import mark_posters, PosterMarker
+from kinopois.processing.processor import load_clean_movies, load_movies
 from kinopois.publishing.collage_export import (
     export_pinterest_csv,
     export_simple_collages_csv,
     export_summary,
 )
-from kinopois.processing.marker import mark_posters, PosterMarker
-from kinopois.processing.processor import load_clean_movies, load_movies
-from kinopois.download.scraper import KinopoiskScraper
 from kinopois.publishing.db import sync_all_from_csv
 from kinopois.publishing.postgres_queue import (
     db_counts,
@@ -31,6 +29,7 @@ from kinopois.publishing.postgres_queue import (
     mark_posted,
     sync_pin_rows,
 )
+from kinopois.utils import read_csv_dict
 
 console = Console()
 
@@ -38,7 +37,7 @@ console = Console()
 def print_header():
     """Print application header."""
     header = Panel.fit(
-        "[bold cyan]🎬 Kinopoisk Poster Downloader[/bold cyan]\n"
+        "[bold cyan]Kinopoisk Poster Downloader[/bold cyan]\n"
         f"[dim]Version {__version__}[/dim]",
         border_style="cyan",
     )
@@ -53,14 +52,12 @@ def print_status():
     table.add_column("Count", style="green")
     table.add_column("Path", style="dim")
 
-    # Count files
     posters_count = len(list(config.posters_dir.glob("*.jpg"))) if config.posters_dir.exists() else 0
     collages_count = len(list(config.collages_dir.glob("*.jpg"))) if config.collages_dir.exists() else 0
 
     table.add_row("Posters", str(posters_count), str(config.posters_dir))
     table.add_row("Collages", str(collages_count), str(config.collages_dir))
 
-    # Cache files
     cache_files = []
     if config.cache_dir.exists():
         for csv_file in ["movies.csv", "movies_clean.csv", "collages.csv", "pins.csv"]:
@@ -69,7 +66,6 @@ def print_status():
 
     table.add_row("Cache files", str(len(cache_files)), str(config.cache_dir))
 
-    # Queue status (Postgres)
     try:
         init_db()
         counts = db_counts()
@@ -83,38 +79,38 @@ def print_status():
     console.print()
 
 
-async def download_menu():
+def download_menu():
     """Download menu with options."""
-    console.print("[bold yellow]📥 Download Posters[/bold yellow]")
+    console.print("[bold yellow]Download Posters[/bold yellow]")
     console.print()
 
-    limit = await questionary.text(
+    limit = questionary.text(
         "How many movies to download?",
         default="200",
         validate=lambda x: x.isdigit() and int(x) > 0,
-    ).ask_async()
+    ).ask()
 
+    if not limit:
+        return
     limit = int(limit)
 
     if not config.kinopoisk_api_key:
         console.print("[red]Error: KINOPOISK_API_KEY is not set![/red]")
-        if await questionary.confirm("Enter API key now?", default=True).ask_async():
-            config.kinopoisk_api_key = await questionary.password("API Key:").ask_async()
+        if questionary.confirm("Enter API key now?", default=True).ask():
+            config.kinopoisk_api_key = questionary.password("API Key:").ask()
         else:
             return
 
     console.print(f"[cyan]Downloading {limit} movies...[/cyan]")
-
     scraper = KinopoiskScraper(config.kinopoisk_api_key)
     scraper.download_and_save(limit=limit)
+    console.print("[green]+ Download complete![/green]")
+    questionary.press_any_key_to_continue().ask()
 
-    console.print("[green]✓ Download complete![/green]")
-    await questionary.press_any_key_to_continue().ask_async()
 
-
-async def process_menu():
+def process_menu():
     """Process menu."""
-    console.print("[bold yellow]🔄 Process Data[/bold yellow]")
+    console.print("[bold yellow]Process Data[/bold yellow]")
     console.print()
 
     input_csv = config.cache_dir / "movies.csv"
@@ -123,7 +119,7 @@ async def process_menu():
     if not input_csv.exists():
         console.print(f"[red]Error: {input_csv} not found![/red]")
         console.print("Run 'Download' first to get movie data.")
-        await questionary.press_any_key_to_continue().ask_async()
+        questionary.press_any_key_to_continue().ask()
         return
 
     console.print(f"[dim]Input:  {input_csv}[/dim]")
@@ -132,119 +128,100 @@ async def process_menu():
 
     processor = load_movies(input_csv)
     processor.clean(output_csv)
+    console.print("[green]+ Processing complete![/green]")
+    questionary.press_any_key_to_continue().ask()
 
-    console.print("[green]✓ Processing complete![/green]")
-    await questionary.press_any_key_to_continue().ask_async()
 
-
-async def collage_menu():
+def collage_menu():
     """Collage creation menu."""
-    console.print("[bold yellow]🖼️  Create Collages[/bold yellow]")
+    console.print("[bold yellow]Create Collages[/bold yellow]")
     console.print()
 
     input_csv = config.cache_dir / "movies_clean.csv"
-
     if not input_csv.exists():
         console.print(f"[red]Error: {input_csv} not found![/red]")
         console.print("Run 'Process Data' first.")
-        await questionary.press_any_key_to_continue().ask_async()
+        questionary.press_any_key_to_continue().ask()
         return
 
-    # Ask for watermark
-    add_watermark = await questionary.confirm("Add watermark?", default=True).ask_async()
+    add_watermark = questionary.confirm("Add watermark?", default=True).ask()
     watermark = ""
     if add_watermark:
-        watermark = await questionary.text(
-            "Watermark text:",
-            default=config.watermark_text,
-        ).ask_async()
+        watermark = questionary.text("Watermark text:", default=config.watermark_text).ask() or ""
 
-    # Ask for max per genre
-    limit_genre = await questionary.confirm("Limit collages per genre?", default=False).ask_async()
+    limit_genre = questionary.confirm("Limit collages per genre?", default=False).ask()
     max_per_genre = None
     if limit_genre:
-        max_str = await questionary.text("Maximum per genre:", default="5").ask_async()
-        max_per_genre = int(max_str) if max_str.isdigit() else None
+        max_str = questionary.text("Maximum per genre:", default="5").ask()
+        max_per_genre = int(max_str) if (max_str or "").isdigit() else None
 
     console.print("[cyan]Creating collages...[/cyan]")
-
     create_collages(
         input_csv=input_csv,
         watermark=watermark if add_watermark else None,
         max_per_genre=max_per_genre,
     )
+    console.print("[green]+ Collages created![/green]")
+    questionary.press_any_key_to_continue().ask()
 
-    console.print("[green]✓ Collages created![/green]")
-    await questionary.press_any_key_to_continue().ask_async()
 
-
-async def mark_menu():
+def mark_menu():
     """Mark posters menu."""
-    console.print("[bold yellow]✏️  Mark Posters[/bold yellow]")
+    console.print("[bold yellow]Mark Posters[/bold yellow]")
     console.print()
 
-    # Choose source
-    source = await questionary.select(
+    source = questionary.select(
         "Mark all posters or specific files?",
         choices=[
             questionary.Choice("All posters in data/posters", "all"),
             questionary.Choice("From CSV file", "csv"),
-            questionary.Choice("← Back", "back"),
+            questionary.Choice("Back", "back"),
         ],
-    ).ask_async()
+    ).ask()
 
-    if source == "back":
+    if source == "back" or not source:
         return
 
-    # Get watermark text
-    watermark = await questionary.text(
-        "Watermark text:",
-        default=config.watermark_text,
-    ).ask_async()
+    watermark = questionary.text("Watermark text:", default=config.watermark_text).ask() or config.watermark_text
 
-    # Get position
-    position = await questionary.select(
+    position = questionary.select(
         "Watermark position:",
         choices=[
             questionary.Choice("Bottom", "bottom"),
             questionary.Choice("Top", "top"),
             questionary.Choice("Corner", "corner"),
         ],
-    ).ask_async()
+    ).ask()
 
     if source == "all":
         console.print(f"[cyan]Marking posters in {config.posters_dir}...[/cyan]")
         mark_posters(config.posters_dir, watermark, position)
-    else:  # csv
-        csv_path = await questionary.path(
-            "Path to CSV file:",
-            default=str(config.cache_dir / "movies.csv"),
-        ).ask_async()
-
+    else:
+        csv_path = questionary.path("Path to CSV file:", default=str(config.cache_dir / "movies.csv")).ask()
         console.print("[cyan]Marking from CSV...[/cyan]")
         marker = PosterMarker(text=watermark, position=position)
         marker.mark_from_csv(Path(csv_path))
 
-    console.print("[green]✓ Marking complete![/green]")
-    await questionary.press_any_key_to_continue().ask_async()
+    console.print("[green]+ Marking complete![/green]")
+    questionary.press_any_key_to_continue().ask()
 
 
-async def export_menu():
+def export_menu():
     """Export menu."""
-    console.print("[bold yellow]📤 Export Data[/bold yellow]")
+    console.print("[bold yellow]Export Data[/bold yellow]")
     console.print()
 
-    format_choice = await questionary.select(
+    format_choice = questionary.select(
         "Export format:",
         choices=[
             questionary.Choice("Pinterest CSV (with titles)", "pinterest"),
             questionary.Choice("Simple CSV (genre, file, link)", "simple"),
             questionary.Choice("Summary statistics", "summary"),
-            questionary.Choice("← Back", "back"),
+            questionary.Choice("Back", "back"),
         ],
-    ).ask_async()
+    ).ask()
 
-    if format_choice == "back":
+    if format_choice == "back" or not format_choice:
         return
 
     collages_csv = config.cache_dir / "collages.csv"
@@ -253,43 +230,43 @@ async def export_menu():
         export_summary(collages_csv, config.cache_dir / "movies_clean.csv")
     elif format_choice == "pinterest":
         export_pinterest_csv(collages_csv)
-    else:  # simple
+    else:
         export_simple_collages_csv(collages_csv)
 
-    console.print("[green]✓ Export complete![/green]")
-    await questionary.press_any_key_to_continue().ask_async()
+    console.print("[green]+ Export complete![/green]")
+    questionary.press_any_key_to_continue().ask()
 
 
-async def queue_menu():
+def queue_menu():
     """Local queue menu for Pinterest automation."""
     while True:
-        console.print("[bold yellow]🧰 Queue / n8n / Pinterest[/bold yellow]")
+        console.print("[bold yellow]Queue / n8n / Pinterest[/bold yellow]")
         console.print()
 
-        action = await questionary.select(
+        action = questionary.select(
             "Queue action:",
             choices=[
-                questionary.Choice("🗄️ Init queue DB", "init"),
-                questionary.Choice("🔄 Sync ALL CSV -> DB", "sync_all"),
-                questionary.Choice("🔄 Sync pins.csv -> Postgres", "sync"),
-                questionary.Choice("📊 DB stats", "stats"),
-                questionary.Choice("📋 Show ready jobs", "ready"),
-                questionary.Choice("✅ Mark job posted", "posted"),
-                questionary.Choice("❌ Mark job failed", "failed"),
-                questionary.Choice("← Back", "back"),
+                questionary.Choice("Init queue DB", "init"),
+                questionary.Choice("Sync ALL CSV -> DB", "sync_all"),
+                questionary.Choice("Sync pins.csv -> Postgres", "sync"),
+                questionary.Choice("DB stats", "stats"),
+                questionary.Choice("Show ready jobs", "ready"),
+                questionary.Choice("Mark job posted", "posted"),
+                questionary.Choice("Mark job failed", "failed"),
+                questionary.Choice("Back", "back"),
             ],
-        ).ask_async()
+        ).ask()
 
-        if action == "back":
+        if action == "back" or not action:
             return
 
         if action == "init":
-            path = init_db()
-            console.print("[green]✓ Queue DB initialized[/green]")
+            init_db()
+            console.print("[green]+ Queue DB initialized[/green]")
 
         elif action == "sync_all":
             out = sync_all_from_csv(config.cache_dir)
-            console.print(f"[green]✓ Synced ALL CSV -> DB: {out}[/green]")
+            console.print(f"[green]+ Synced ALL CSV -> DB: {out}[/green]")
 
         elif action == "sync":
             pins_csv = config.cache_dir / "pins.csv"
@@ -297,13 +274,13 @@ async def queue_menu():
                 console.print(f"[red]Error: {pins_csv} not found. Run Export first.[/red]")
             else:
                 inserted = sync_pin_rows(read_csv_dict(pins_csv, config.csv_delimiter, config.csv_encoding))
-                console.print(f"[green]✓ Synced queue to Postgres. Inserted: {inserted}[/green]")
+                console.print(f"[green]+ Synced queue to Postgres. Inserted: {inserted}[/green]")
 
         elif action == "stats":
             console.print(f"[cyan]Queue counts:[/cyan] {db_counts()}")
 
         elif action == "ready":
-            limit_str = await questionary.text("Limit:", default="20").ask_async()
+            limit_str = questionary.text("Limit:", default="20").ask()
             limit = int(limit_str) if (limit_str or "").isdigit() else 20
             rows = get_ready_jobs(limit=limit)
             if not rows:
@@ -319,33 +296,33 @@ async def queue_menu():
                 console.print(t)
 
         elif action == "posted":
-            job_id = await questionary.text("Job ID:").ask_async()
-            pin_id = await questionary.text("Pinterest pin ID:").ask_async()
+            job_id = questionary.text("Job ID:").ask()
+            pin_id = questionary.text("Pinterest pin ID:").ask()
             if (job_id or "").isdigit() and pin_id:
                 mark_posted(int(job_id), pin_id)
-                console.print(f"[green]✓ Job {job_id} marked posted[/green]")
+                console.print(f"[green]+ Job {job_id} marked posted[/green]")
             else:
                 console.print("[red]Invalid job id or pin id[/red]")
 
         elif action == "failed":
-            job_id = await questionary.text("Job ID:").ask_async()
-            err = await questionary.text("Error message:", default="Pinterest API error").ask_async()
+            job_id = questionary.text("Job ID:").ask()
+            err = questionary.text("Error message:", default="Pinterest API error").ask()
             if (job_id or "").isdigit():
                 mark_failed(int(job_id), err or "unknown error")
-                console.print(f"[yellow]⚠ Job {job_id} marked failed[/yellow]")
+                console.print(f"[yellow]Job {job_id} marked failed[/yellow]")
             else:
                 console.print("[red]Invalid job id[/red]")
 
         console.print()
-        await questionary.press_any_key_to_continue().ask_async()
+        questionary.press_any_key_to_continue().ask()
 
 
-async def clean_menu():
+def clean_menu():
     """Clean menu."""
-    console.print("[bold yellow]🗑️  Clean Data[/bold yellow]")
+    console.print("[bold yellow]Clean Data[/bold yellow]")
     console.print()
 
-    choices = await questionary.checkbox(
+    choices = questionary.checkbox(
         "What to clean?",
         choices=[
             questionary.Choice("Cache (CSV files)", "cache"),
@@ -353,22 +330,20 @@ async def clean_menu():
             questionary.Choice("All data", "all"),
         ],
         validate=lambda x: len(x) > 0,
-    ).ask_async()
+    ).ask()
 
     if not choices:
         return
 
-    confirm = await questionary.confirm(
+    confirm = questionary.confirm(
         f"This will delete: {', '.join(choices)}. Continue?",
         default=False,
-    ).ask_async()
+    ).ask()
 
     if not confirm:
         console.print("[yellow]Cancelled.[/yellow]")
-        await questionary.press_any_key_to_continue().ask_async()
+        questionary.press_any_key_to_continue().ask()
         return
-
-    import shutil
 
     if "all" in choices:
         if config.cache_dir.exists():
@@ -385,121 +360,102 @@ async def clean_menu():
             shutil.rmtree(config.collages_dir)
             config.collages_dir.mkdir(parents=True, exist_ok=True)
 
-    console.print("[green]✓ Clean complete![/green]")
-    await questionary.press_any_key_to_continue().ask_async()
+    console.print("[green]+ Clean complete![/green]")
+    questionary.press_any_key_to_continue().ask()
 
 
-async def settings_menu():
+def settings_menu():
     """Settings menu."""
-    console.print("[bold yellow]⚙️  Settings[/bold yellow]")
+    console.print("[bold yellow]Settings[/bold yellow]")
     console.print()
 
-    # Show current settings
     table = Table(show_header=False)
     table.add_column("Setting", style="cyan")
     table.add_column("Value", style="yellow")
-
     table.add_row("API Key", "***" + (config.kinopoisk_api_key[-4:] if config.kinopoisk_api_key else " (not set)"))
     table.add_row("Data Dir", str(config.data_dir))
     table.add_row("Watermark", config.watermark_text)
     table.add_row("Tile Size", f"{config.collage_tile_width}x{config.collage_tile_height}")
     table.add_row("Max per Genre", str(config.collage_max_per_genre or "unlimited"))
-
     console.print(table)
     console.print()
 
-    action = await questionary.select(
+    action = questionary.select(
         "What to change?",
         choices=[
             questionary.Choice("API Key", "api"),
             questionary.Choice("Watermark text", "watermark"),
             questionary.Choice("Max collages per genre", "max_genre"),
-            questionary.Choice("← Back", "back"),
+            questionary.Choice("Back", "back"),
         ],
-    ).ask_async()
+    ).ask()
 
-    if action == "back":
+    if action == "back" or not action:
         return
     elif action == "api":
-        new_key = await questionary.password("Enter new API Key:").ask_async()
+        new_key = questionary.password("Enter new API Key:").ask()
         if new_key:
             config.kinopoisk_api_key = new_key
-            console.print("[green]✓ API Key updated![/green]")
+            console.print("[green]+ API Key updated![/green]")
     elif action == "watermark":
-        new_text = await questionary.text(
-            "Enter watermark text:",
-            default=config.watermark_text,
-        ).ask_async()
+        new_text = questionary.text("Enter watermark text:", default=config.watermark_text).ask()
         config.watermark_text = new_text
-        console.print("[green]✓ Watermark updated![/green]")
+        console.print("[green]+ Watermark updated![/green]")
     elif action == "max_genre":
-        new_max = await questionary.text(
+        new_max = questionary.text(
             "Max collages per genre (empty for unlimited):",
             default=str(config.collage_max_per_genre or ""),
-        ).ask_async()
-        config.collage_max_per_genre = int(new_max) if new_max.isdigit() else None
-        console.print("[green]✓ Setting updated![/green]")
+        ).ask()
+        config.collage_max_per_genre = int(new_max) if (new_max or "").isdigit() else None
+        console.print("[green]+ Setting updated![/green]")
 
     console.print()
-    await questionary.press_any_key_to_continue().ask_async()
-
-
-async def main_menu():
-    """Main interactive menu."""
-    while True:
-        print_header()
-        print_status()
-
-        choice = await questionary.select(
-            "What would you like to do?",
-            choices=[
-                questionary.Separator(),
-                questionary.Choice("📥 Download posters", "download"),
-                questionary.Choice("🔄 Process data", "process"),
-                questionary.Choice("🖼️  Create collages", "collage"),
-                questionary.Choice("✏️  Mark posters", "mark"),
-                questionary.Choice("📤 Export data", "export"),
-                questionary.Choice("🧰 Queue / n8n / Pinterest", "queue"),
-                questionary.Choice("🗑️  Clean data", "clean"),
-                questionary.Choice("⚙️  Settings", "settings"),
-                questionary.Separator(),
-                questionary.Choice("❌ Exit", "exit"),
-            ],
-        ).ask_async()
-
-        if choice == "exit":
-            console.print("[cyan]Goodbye! 👋[/cyan]")
-            break
-        elif choice == "download":
-            await download_menu()
-        elif choice == "process":
-            await process_menu()
-        elif choice == "collage":
-            await collage_menu()
-        elif choice == "mark":
-            await mark_menu()
-        elif choice == "export":
-            await export_menu()
-        elif choice == "queue":
-            await queue_menu()
-        elif choice == "clean":
-            await clean_menu()
-        elif choice == "settings":
-            await settings_menu()
+    questionary.press_any_key_to_continue().ask()
 
 
 def interactive():
     """Run interactive CLI."""
-    import asyncio
-
     try:
-        asyncio.run(main_menu())
+        while True:
+            print_header()
+            print_status()
+
+            choice = questionary.select(
+                "What would you like to do?",
+                choices=[
+                    questionary.Separator(),
+                    questionary.Choice("Download posters", "download"),
+                    questionary.Choice("Process data", "process"),
+                    questionary.Choice("Create collages", "collage"),
+                    questionary.Choice("Mark posters", "mark"),
+                    questionary.Choice("Export data", "export"),
+                    questionary.Choice("Queue / n8n / Pinterest", "queue"),
+                    questionary.Choice("Clean data", "clean"),
+                    questionary.Choice("Settings", "settings"),
+                    questionary.Separator(),
+                    questionary.Choice("Exit", "exit"),
+                ],
+            ).ask()
+
+            if choice == "exit" or not choice:
+                console.print("[cyan]Goodbye![/cyan]")
+                break
+            elif choice == "download":
+                download_menu()
+            elif choice == "process":
+                process_menu()
+            elif choice == "collage":
+                collage_menu()
+            elif choice == "mark":
+                mark_menu()
+            elif choice == "export":
+                export_menu()
+            elif choice == "queue":
+                queue_menu()
+            elif choice == "clean":
+                clean_menu()
+            elif choice == "settings":
+                settings_menu()
+
     except KeyboardInterrupt:
         console.print("\n[yellow]Interrupted by user[/yellow]")
-
-
-@click.command()
-@click.pass_context
-def interactive_cmd(ctx):
-    """Launch interactive menu mode."""
-    interactive()

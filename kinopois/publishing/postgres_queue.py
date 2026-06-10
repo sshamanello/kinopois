@@ -1,11 +1,14 @@
-"""PostgreSQL-backed publish queue for kinopois."""
+"""PostgreSQL-backed publish queue for kinopois.
+
+The `kinopois_pins` table is the single source of truth for the publish pipeline.
+n8n reads ready rows from here; `mark_posted` / `mark_failed` update status.
+"""
 
 from __future__ import annotations
 
 import json
 from datetime import datetime
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -15,7 +18,13 @@ from kinopois.publishing.eventlog import log_event
 from kinopois.utils import read_csv_dict
 
 
+# ── Connection helpers ────────────────────────────────────────────────────────
+
+_db_initialized = False
+
+
 def _conn_kwargs() -> Dict[str, Any]:
+    """Build psycopg2 connection kwargs from config."""
     kwargs: Dict[str, Any] = {
         "host": config.queue_db_host,
         "port": int(config.queue_db_port),
@@ -24,17 +33,23 @@ def _conn_kwargs() -> Dict[str, Any]:
         "password": config.queue_db_password,
         "cursor_factory": RealDictCursor,
     }
-    sslmode = str(config.queue_db_sslmode or "").strip()
+    sslmode = (config.queue_db_sslmode or "").strip()
     if sslmode:
         kwargs["sslmode"] = sslmode
     return kwargs
 
 
 def get_conn():
+    """Open a connection to the Postgres publish queue."""
     return psycopg2.connect(**_conn_kwargs())
 
 
 def init_db() -> None:
+    """Create the kinopois_pins table if it doesn't exist. Idempotent."""
+    global _db_initialized
+    if _db_initialized:
+        return
+
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -73,10 +88,13 @@ def init_db() -> None:
                 );
                 """
             )
-            cur.execute("ALTER TABLE kinopois_pins ADD COLUMN IF NOT EXISTS public_image_url text;")
-            cur.execute("ALTER TABLE kinopois_pins ADD COLUMN IF NOT EXISTS remote_image_path text;")
-            cur.execute("ALTER TABLE kinopois_pins ADD COLUMN IF NOT EXISTS vds_upload_status text DEFAULT 'uploaded';")
-            cur.execute("ALTER TABLE kinopois_pins ADD COLUMN IF NOT EXISTS uploaded_at text;")
+            for alter in (
+                "ALTER TABLE kinopois_pins ADD COLUMN IF NOT EXISTS public_image_url text;",
+                "ALTER TABLE kinopois_pins ADD COLUMN IF NOT EXISTS remote_image_path text;",
+                "ALTER TABLE kinopois_pins ADD COLUMN IF NOT EXISTS vds_upload_status text DEFAULT 'uploaded';",
+                "ALTER TABLE kinopois_pins ADD COLUMN IF NOT EXISTS uploaded_at text;",
+            ):
+                cur.execute(alter)
             cur.execute(
                 """
                 CREATE INDEX IF NOT EXISTS idx_kinopois_pins_publish_status
@@ -85,9 +103,13 @@ def init_db() -> None:
             )
         conn.commit()
 
+    _db_initialized = True
 
-def sync_pin_rows(rows: List[Dict[str, Any]], db_path: Optional[Path] = None) -> int:
-    del db_path
+
+# ── Row sync ─────────────────────────────────────────────────────────────────
+
+def sync_pin_rows(rows: List[Dict[str, Any]]) -> int:
+    """Upsert pin rows into kinopois_pins. Returns count of upserted rows."""
     init_db()
     now = datetime.utcnow().isoformat(timespec="seconds")
     inserted = 0
@@ -234,17 +256,20 @@ def sync_pin_rows(rows: List[Dict[str, Any]], db_path: Optional[Path] = None) ->
 
 
 def _is_terminal_status(status: str, posted: str) -> bool:
+    """Check if a row is in a terminal state (published or failed)."""
     return str(posted).strip().upper() == "TRUE" or str(status).strip().lower() in {"published", "failed"}
 
 
-def sync_pins_csv(pins_csv: Path, db_path: Optional[Path] = None) -> int:
-    del db_path
-    rows = read_csv_dict(pins_csv, config.csv_delimiter, config.csv_encoding)
-    return sync_pin_rows(rows, db_path=db_path)
+def sync_pins_csv(pins_csv_path) -> int:
+    """Load a pins CSV and upsert rows into the Postgres queue."""
+    rows = read_csv_dict(pins_csv_path, config.csv_delimiter, config.csv_encoding)
+    return sync_pin_rows(rows)
 
 
-def get_ready_jobs(limit: int = 20, db_path: Optional[Path] = None) -> List[Dict[str, Any]]:
-    del db_path
+# ── Queue queries ────────────────────────────────────────────────────────────
+
+def get_ready_jobs(limit: int = 20) -> List[Dict[str, Any]]:
+    """Return ready-to-publish jobs ordered by id."""
     init_db()
     with get_conn() as conn:
         with conn.cursor() as cur:
@@ -266,8 +291,8 @@ def get_ready_jobs(limit: int = 20, db_path: Optional[Path] = None) -> List[Dict
     return rows
 
 
-def mark_posted(job_id: int, pin_id: str, db_path: Optional[Path] = None) -> None:
-    del db_path
+def mark_posted(job_id: int, pin_id: str) -> None:
+    """Mark a job as successfully posted."""
     now = datetime.utcnow().isoformat(timespec="seconds")
     init_db()
     with get_conn() as conn:
@@ -291,10 +316,10 @@ def mark_posted(job_id: int, pin_id: str, db_path: Optional[Path] = None) -> Non
     log_event("publish_job_marked_posted", job_id=job_id, pin_id=pin_id, posted_at=now)
 
 
-def mark_failed(job_id: int, error: str, db_path: Optional[Path] = None) -> None:
-    del db_path
-    now = datetime.utcnow().isoformat(timespec="seconds")
+def mark_failed(job_id: int, error: str) -> None:
+    """Mark a job as failed."""
     error_text = (error or "").strip()
+    now = datetime.utcnow().isoformat(timespec="seconds")
     init_db()
     with get_conn() as conn:
         with conn.cursor() as cur:
@@ -314,8 +339,8 @@ def mark_failed(job_id: int, error: str, db_path: Optional[Path] = None) -> None
     log_event("publish_job_marked_failed", job_id=job_id, error=error_text[:500], failed_at=now)
 
 
-def db_counts(db_path: Optional[Path] = None) -> Dict[str, int]:
-    del db_path
+def db_counts() -> Dict[str, int]:
+    """Return counts by publish status."""
     init_db()
     with get_conn() as conn:
         with conn.cursor() as cur:
@@ -338,8 +363,8 @@ def db_counts(db_path: Optional[Path] = None) -> Dict[str, int]:
     }
 
 
-def claim_ready_jobs(limit: int = 1, db_path: Optional[Path] = None) -> List[Dict[str, Any]]:
-    del db_path
+def claim_ready_jobs(limit: int = 1) -> List[Dict[str, Any]]:
+    """Atomically claim ready jobs for publishing (SKIP LOCKED)."""
     init_db()
     now = datetime.utcnow().isoformat(timespec="seconds")
     with get_conn() as conn:

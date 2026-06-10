@@ -29,9 +29,7 @@ from kinopois.publishing.export import (
     export_summary,
     export_movie_pins_csv,
 )
-from kinopois.publishing.db import (
-    sync_all_from_csv,
-)
+from kinopois.publishing.db import sync_all_from_csv
 from kinopois.publishing.postgres_queue import (
     db_counts as queue_db_counts,
     get_ready_jobs,
@@ -39,7 +37,6 @@ from kinopois.publishing.postgres_queue import (
     mark_failed,
     mark_posted,
     sync_pin_rows,
-    sync_pins_csv,
 )
 from kinopois.processing.marker import mark_posters, PosterMarker
 from kinopois.publishing.pipeline_steps import run_daily_prepare, step_publish

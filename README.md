@@ -6,13 +6,15 @@
 
 ```text
 kinopois/
-  download/      Kinopoisk API client and poster download
-  processing/    CSV cleaning, collages, framing, watermarking
-  publishing/    CSV export, Postgres queue, autopilot
-  cli.py         Click entrypoint
-  config.py      Env-backed configuration
-  utils.py       Shared CSV and parsing helpers
-docs/            Full project documentation
+  download/          Kinopoisk API client and poster download
+  processing/        CSV cleaning, collages, framing, watermarking
+  publishing/        Pin row building, Postgres queue, autopilot
+  cli.py             Click CLI entrypoint
+  config.py          Env-backed configuration singleton
+  interactive.py     Sync questionary-based TUI menu
+  logging_setup.py   Python logging with file rotation
+  utils.py           Shared CSV and parsing helpers
+docs/                Full project documentation
 ```
 
 ## Main flow
@@ -35,11 +37,15 @@ pip install -e .
 ## Common commands
 
 ```bash
-kinopois download --limit 200
-kinopois process
-kinopois export-movie-pins
-kinopois run-base-pipeline --limit 200
-kinopois run-prod --limit 200 --max-per-genre 1
+kinopois download --limit 200                 # Download posters
+kinopois process                               # Clean movie data
+kinopois export-movie-pins                    # Export pins to CSV
+kinopois pins --limit 200 --sync-queue        # Full pin pipeline + queue sync
+kinopois run-base-pipeline --limit 200        # Production pipeline -> Postgres
+kinopois queue-ready --limit 5               # Show ready jobs (JSON)
+kinopois db-stats                              # Show queue counts
+kinopois autopilot-once                        # One autopilot tick
+kinopois autopilot                             # Daemon mode
 ```
 
 ## Configuration
@@ -57,6 +63,12 @@ PUBLISH_REMOTE_SYNC_ENABLED=0
 ```
 
 The publish queue lives in Postgres (`kinopois_pins`) and is read by n8n.
+
+## Logging
+
+- `data/logs/kinopois.log` — Python logging with rotation (INFO+)
+- `data/logs/events.log` — Structured JSONL events (audit trail)
+- Console output via Rich (user-facing only)
 
 ## Documentation
 

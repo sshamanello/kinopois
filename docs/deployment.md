@@ -17,3 +17,16 @@ bash deploy/cron-setup.sh
 ```
 
 `data/` and `credentials/` are mounted volumes and should stay outside the image.
+
+## Logs
+
+```bash
+# Application logs (rotated, 10MB x 5)
+tail -f data/logs/kinopois.log
+
+# Structured audit events (JSONL)
+tail -f data/logs/events.log
+
+# Docker logs
+docker compose logs -f kinopois-autopilot
+```

@@ -71,6 +71,10 @@ def get_logger(name: str) -> logging.Logger:
 
     Ensures logging is set up before returning the logger.
     The name should typically be __name__ of the calling module.
+    If the name doesn't start with 'kinopois', it's prefixed automatically
+    so the logger inherits the kinopois handler configuration.
     """
     setup_logging()
+    if not name.startswith("kinopois"):
+        name = f"kinopois.{name}"
     return logging.getLogger(name)

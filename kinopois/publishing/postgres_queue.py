@@ -270,6 +270,15 @@ def sync_pins_csv(pins_csv_path) -> int:
 
 # ── Queue queries ────────────────────────────────────────────────────────────
 
+def _row_to_dict(r) -> Dict[str, Any]:
+    """Convert a RealDictRow to a JSON-safe dict (datetime → str)."""
+    d = dict(r)
+    for k, v in d.items():
+        if isinstance(v, datetime):
+            d[k] = v.isoformat()
+    return d
+
+
 def get_ready_jobs(limit: int = 20) -> List[Dict[str, Any]]:
     """Return ready-to-publish jobs ordered by id."""
     init_db()
@@ -289,7 +298,7 @@ def get_ready_jobs(limit: int = 20) -> List[Dict[str, Any]]:
                 """,
                 (max(1, int(limit)),),
             )
-            rows = [dict(r) for r in cur.fetchall()]
+            rows = [_row_to_dict(r) for r in cur.fetchall()]
     return rows
 
 
@@ -384,7 +393,7 @@ def claim_ready_jobs(limit: int = 1) -> List[Dict[str, Any]]:
                 """,
                 (max(1, int(limit)),),
             )
-            rows = [dict(r) for r in cur.fetchall()]
+            rows = [_row_to_dict(r) for r in cur.fetchall()]
             if not rows:
                 conn.commit()
                 return []

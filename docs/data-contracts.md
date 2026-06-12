@@ -31,6 +31,7 @@ uploaded_at; publish_status; published_at; error_reason
 The `kinopois_pins` table is the single source of truth for publish state.
 Key columns for n8n workflow:
 - `publish_status = 'ready'` — row is ready for publishing
-- `vds_upload_status = 'uploaded'` — image is available on the server
+- `vds_upload_status = 'uploaded'` — image has been copied to publish dir
 - `posted = 'TRUE'` — successfully published
 - `pin_id` — Pinterest pin ID after publishing
+- `image_url` — local relative path (e.g. `data/posters_framed/11466997.jpg`); Pinterest uses base64 upload from the local file

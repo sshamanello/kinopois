@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import shutil
-import subprocess
-import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
@@ -29,45 +27,6 @@ from kinopois.logging_setup import get_logger
 logger = get_logger(__name__)
 
 console = Console()
-
-
-def _remote_target_for_id(kp_id: str) -> str:
-    return f"{config.publish_remote_user}@{config.publish_remote_host}:{config.publish_remote_dir.rstrip('/')}/{kp_id}.jpg"
-
-
-def _scp_to_remote(local_path: Path, kp_id: str) -> tuple[bool, str]:
-    remote = _remote_target_for_id(kp_id)
-    ssh_opts = [
-        "-o", "BatchMode=yes",
-        "-o", "StrictHostKeyChecking=no",
-        "-o", "UserKnownHostsFile=/dev/null",
-        "-o", "GlobalKnownHostsFile=/dev/null",
-        "-o", "LogLevel=ERROR",
-        "-o", f"ConnectTimeout={max(1, int(config.publish_remote_connect_timeout_sec))}",
-    ]
-    attempts = 3
-    last_err = "remote_scp_failed"
-    for idx in range(attempts):
-        try:
-            proc = subprocess.run(
-                ["scp", *ssh_opts, str(local_path), remote],
-                capture_output=True,
-                text=True,
-                timeout=max(3, int(config.publish_remote_cmd_timeout_sec)),
-            )
-        except subprocess.TimeoutExpired:
-            last_err = "remote_scp_timeout"
-        except Exception as exc:
-            last_err = f"remote_scp_error:{exc}"
-        else:
-            if proc.returncode == 0:
-                return True, ""
-            last_err = (proc.stderr or proc.stdout or "remote_scp_failed").strip()
-
-        if idx < attempts - 1:
-            time.sleep(1.0 + idx)
-
-    return False, last_err
 
 
 def step_download(limit: int) -> Path:
@@ -160,14 +119,6 @@ def step_upload_to_server(rows: List[Dict[str, Any]]) -> Dict[str, int]:
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dst)
 
-        if config.publish_remote_sync_enabled and config.publish_remote_host:
-            ok, err = _scp_to_remote(dst, kp_id)
-            if not ok:
-                row["vds_upload_status"] = "upload_failed"
-                row["error_reason"] = err[:500]
-                failed += 1
-                continue
-
         row["public_image_url"] = f"{config.publish_images_base_url}/{kp_id}.jpg"
         row["remote_image_path"] = str(dst)
         row["vds_upload_status"] = "uploaded"
@@ -184,6 +135,7 @@ def step_upload_to_server(rows: List[Dict[str, Any]]) -> Dict[str, int]:
 
 
 def step_cleanup_publish_dir() -> Dict[str, int]:
+    """Delete old images from the publish directory past the retention period."""
     if not config.publish_images_cleanup_enabled:
         stats = {"deleted": 0, "kept": 0, "scanned": 0}
         log_event("step_cleanup_skipped", **stats)
@@ -206,35 +158,7 @@ def step_cleanup_publish_dir() -> Dict[str, int]:
         except Exception:
             kept += 1
 
-    remote_deleted = 0
-    if config.publish_remote_sync_enabled and config.publish_remote_host:
-        cmd = (
-            f"find {config.publish_remote_dir.rstrip('/')} -type f -name '*.jpg' "
-            f"-mtime +{max(1, int(config.publish_images_retention_days))} -delete -print | wc -l"
-        )
-        try:
-            proc = subprocess.run(
-                [
-                    "ssh",
-                    "-o", "BatchMode=yes",
-                    "-o", "StrictHostKeyChecking=no",
-                    "-o", f"ConnectTimeout={max(1, int(config.publish_remote_connect_timeout_sec))}",
-                    f"{config.publish_remote_user}@{config.publish_remote_host}",
-                    cmd,
-                ],
-                capture_output=True,
-                text=True,
-                timeout=max(3, int(config.publish_remote_cmd_timeout_sec)),
-            )
-            if proc.returncode == 0:
-                try:
-                    remote_deleted = int((proc.stdout or "0").strip().splitlines()[-1])
-                except Exception:
-                    remote_deleted = 0
-        except Exception:
-            remote_deleted = 0
-
-    stats = {"deleted": deleted, "kept": kept, "scanned": scanned, "remote_deleted": remote_deleted}
+    stats = {"deleted": deleted, "kept": kept, "scanned": scanned}
     log_event("step_cleanup_completed", **stats)
     return stats
 

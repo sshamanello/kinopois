@@ -9,9 +9,6 @@ services:
       # Persistent logs
       - ./logs:/app/logs
       - ./credentials:/app/credentials:ro
-      # SSH key pair for remote publish sync (87.120.219.4)
-      - /home/nick/.ssh/id_ed25519:/root/.ssh/id_ed25519:ro
-      - /home/nick/.ssh/known_hosts:/root/.ssh/known_hosts:ro
     dns:
       - 1.1.1.1
       - 8.8.8.8

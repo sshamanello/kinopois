@@ -85,11 +85,10 @@ Three parallel logging channels:
 
 ```
 KINOPOISK_API_KEY=          # required for download
-POSTERS_BASE_URL=           # public URL prefix for poster images
+POSTERS_BASE_URL=           # local path prefix for poster images (e.g. data/posters)
+FRAMED_POSTERS_BASE_URL=    # local path prefix for framed posters (e.g. data/posters_framed)
 BOT_URL=                    # Telegram bot URL used in pin descriptions
-PUBLISH_IMAGES_BASE_URL=    # public URL prefix for ready-to-publish images
-PUBLISH_REMOTE_SYNC_ENABLED=0
-PUBLISH_REMOTE_HOST=       # optional remote mirror for publish-ready images
+PUBLISH_IMAGES_BASE_URL=    # local path prefix for ready-to-publish images (e.g. data/publish/ready)
 ```
 
 ## Common commands

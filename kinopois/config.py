@@ -70,9 +70,9 @@ class Config:
 
     # ── Export / URLs ─────────────────────────────────────────────────────────
     bot_url: str = "https://t.me/TopTrailer82Bot"
-    base_image_url: str = "http://87.120.219.4/collages"
-    posters_base_url: str = field(default_factory=lambda: _env_str("POSTERS_BASE_URL", "http://87.120.219.4/posters"))
-    framed_posters_base_url: str = field(default_factory=lambda: _env_str("FRAMED_POSTERS_BASE_URL", "http://87.120.219.4/posters_framed"))
+    base_image_url: str = field(default_factory=lambda: _env_str("BASE_IMAGE_URL", "data/collages"))
+    posters_base_url: str = field(default_factory=lambda: _env_str("POSTERS_BASE_URL", "data/posters"))
+    framed_posters_base_url: str = field(default_factory=lambda: _env_str("FRAMED_POSTERS_BASE_URL", "data/posters_framed"))
 
     # ── Framed poster settings ────────────────────────────────────────────────
     use_framed_posters: bool = field(default_factory=lambda: _env_bool("USE_FRAMED_POSTERS", "1"))
@@ -81,15 +81,9 @@ class Config:
 
     # ── Publish / image upload ───────────────────────────────────────────────
     publish_images_dir: Path = field(default_factory=lambda: _env_path("PUBLISH_IMAGES_DIR", "data/publish/ready"))
-    publish_images_base_url: str = field(default_factory=lambda: _env_str("PUBLISH_IMAGES_BASE_URL", "http://87.120.219.4/pins/ready"))
+    publish_images_base_url: str = field(default_factory=lambda: _env_str("PUBLISH_IMAGES_BASE_URL", "data/publish/ready"))
     publish_images_cleanup_enabled: bool = field(default_factory=lambda: _env_bool("PUBLISH_IMAGES_CLEANUP_ENABLED", "1"))
     publish_images_retention_days: int = field(default_factory=lambda: _env_int("PUBLISH_IMAGES_RETENTION_DAYS", "21"))
-    publish_remote_sync_enabled: bool = field(default_factory=lambda: _env_bool("PUBLISH_REMOTE_SYNC_ENABLED", "0"))
-    publish_remote_host: str = field(default_factory=lambda: _env_str("PUBLISH_REMOTE_HOST"))
-    publish_remote_user: str = field(default_factory=lambda: _env_str("PUBLISH_REMOTE_USER", "root"))
-    publish_remote_dir: str = field(default_factory=lambda: _env_str("PUBLISH_REMOTE_DIR", "/var/www/html/pins/ready"))
-    publish_remote_connect_timeout_sec: int = field(default_factory=lambda: _env_int("PUBLISH_REMOTE_CONNECT_TIMEOUT_SEC", "8"))
-    publish_remote_cmd_timeout_sec: int = field(default_factory=lambda: _env_int("PUBLISH_REMOTE_CMD_TIMEOUT_SEC", "25"))
 
     # ── Postgres queue ───────────────────────────────────────────────────────
     queue_db_host: str = field(default_factory=lambda: _env_str("QUEUE_DB_HOST", "127.0.0.1"))
@@ -129,7 +123,7 @@ class Config:
     log_level: str = field(default_factory=lambda: _env_str("LOG_LEVEL", "INFO"))
 
     def __post_init__(self):
-        """Create directories if they don't exist; normalise URLs."""
+        """Create directories if they don't exist; normalise path strings."""
         self.posters_dir.mkdir(parents=True, exist_ok=True)
         self.collages_dir.mkdir(parents=True, exist_ok=True)
         self.cache_dir.mkdir(parents=True, exist_ok=True)

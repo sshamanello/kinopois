@@ -68,6 +68,16 @@ Kinopoisk.dev API
 - Postgres `kinopois_pins` is the single source of truth for publish state.
 - SQLite is a local cache for download/processing data only.
 
+## 2026-06-12 — Removed remote server dependency (87.120.219.4)
+
+- All image URLs now use local paths (e.g. `data/posters_framed/11466997.jpg`) instead of `http://87.120.219.4/...`.
+- Pinterest publishing uses base64 upload from local files — no public URL needed.
+- Removed remote SCP sync (`_scp_to_remote`, `_remote_target_for_id`) from `pipeline_steps.py`.
+- Removed `publish_remote_*` config fields (6 fields): `publish_remote_sync_enabled`, `publish_remote_host`, `publish_remote_user`, `publish_remote_dir`, `publish_remote_connect_timeout_sec`, `publish_remote_cmd_timeout_sec`.
+- Removed SSH key mount from `docker-compose.yml`.
+- Updated `.env.example` and server `.env` — no remote host references remain.
+- `image_url` in Postgres stores local relative paths; `pinterest.py` resolves them to actual files via `_resolve_local_image_path()`.
+
 ## Base launch on server
 
 ```bash

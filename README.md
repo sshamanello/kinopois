@@ -2,6 +2,8 @@
 
 `kinopois` is a Python CLI for downloading Kinopoisk posters, cleaning movie metadata, and exporting Pinterest-ready rows for automated publishing.
 
+**Everything runs locally** — no remote servers needed. Pinterest API receives base64-encoded image data from local files.
+
 ## Project layout
 
 ```text
@@ -10,7 +12,7 @@ kinopois/
   processing/        CSV cleaning, collages, framing, watermarking
   publishing/        Pin row building, Postgres queue, autopilot
   cli.py             Click CLI entrypoint
-  config.py          Env-backed configuration singleton
+  config.py          Env-backed configuration singleton (all local paths)
   interactive.py     Sync questionary-based TUI menu
   logging_setup.py   Python logging with file rotation
   utils.py           Shared CSV and parsing helpers
@@ -34,18 +36,38 @@ source .venv/bin/activate
 pip install -e .
 ```
 
+On the server (192.168.10.122), use `PYTHONPATH` instead:
+
+```bash
+cd /home/nick/kinopois
+PYTHONPATH=/home/nick/kinopois python3 -m kinopois --help
+```
+
 ## Common commands
 
 ```bash
-kinopois download --limit 200                 # Download posters
-kinopois process                               # Clean movie data
-kinopois export-movie-pins                    # Export pins to CSV
-kinopois pins --limit 200 --sync-queue        # Full pin pipeline + queue sync
-kinopois run-base-pipeline --limit 200        # Production pipeline -> Postgres
-kinopois queue-ready --limit 5               # Show ready jobs (JSON)
-kinopois db-stats                              # Show queue counts
-kinopois autopilot-once                        # One autopilot tick
-kinopois autopilot                             # Daemon mode
+# Full pipeline (daily cron at 21:00 MSK)
+PYTHONPATH=/home/nick/kinopois python3 -m kinopois run-base-pipeline --limit 200
+
+# Download only
+PYTHONPATH=/home/nick/kinopois python3 -m kinopois download --limit 200
+
+# Process only
+PYTHONPATH=/home/nick/kinopois python3 -m kinopois process
+
+# Export pins CSV
+PYTHONPATH=/home/nick/kinopois python3 -m kinopois export-movie-pins
+
+# Full pin pipeline + queue sync
+PYTHONPATH=/home/nick/kinopois python3 -m kinopois pins --limit 200 --sync-queue
+
+# Queue inspection
+PYTHONPATH=/home/nick/kinopois python3 -m kinopois queue-ready --limit 5
+PYTHONPATH=/home/nick/kinopois python3 -m kinopois db-stats
+
+# Autopilot
+PYTHONPATH=/home/nick/kinopois python3 -m kinopois autopilot-once
+PYTHONPATH=/home/nick/kinopois python3 -m kinopois autopilot
 ```
 
 ## Configuration
@@ -56,18 +78,32 @@ Copy `.env.example` to `.env` and set at least:
 KINOPOISK_API_KEY=...
 PINTEREST_ACCESS_TOKEN=...
 PINTEREST_BOARD_ID=...
-POSTERS_BASE_URL=https://your-domain.example/posters
-FRAMED_POSTERS_BASE_URL=https://your-domain.example/posters_framed
-PUBLISH_IMAGES_BASE_URL=https://your-domain.example/pins/ready
-PUBLISH_REMOTE_SYNC_ENABLED=0
 ```
 
+All image paths are **local** by default:
+
+```env
+POSTERS_BASE_URL=data/posters
+FRAMED_POSTERS_BASE_URL=data/posters_framed
+PUBLISH_IMAGES_BASE_URL=data/publish/ready
+```
+
+Pinterest publishing uses base64 upload from local files — no public URL or remote server needed.
+
 The publish queue lives in Postgres (`kinopois_pins`) and is read by n8n.
+
+## Cron (daily at 21:00 MSK)
+
+```bash
+CRON_TZ=Europe/Moscow
+0 21 * * * cd /home/nick/kinopois && PYTHONPATH=/home/nick/kinopois FRAMED_FORCE_REGENERATE=0 FRAMED_REFRESH_SOURCE=0 python3 -m kinopois run-base-pipeline --limit 200 >> /home/nick/kinopois/data/logs/cron.log 2>&1
+```
 
 ## Logging
 
 - `data/logs/kinopois.log` — Python logging with rotation (INFO+)
 - `data/logs/events.log` — Structured JSONL events (audit trail)
+- `data/logs/cron.log` — Cron output
 - Console output via Rich (user-facing only)
 
 ## Documentation

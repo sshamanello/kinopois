@@ -6,6 +6,9 @@
 processes metadata, and writes Pinterest-ready pin rows directly into the
 Postgres publish queue (`kinopois_pins`) that feeds n8n / autopilot / Pinterest API.
 
+**Everything runs locally** — no remote servers needed. Pinterest API receives
+base64-encoded image data from local files via `_resolve_local_image_path()`.
+
 ## Architecture
 
 ```
@@ -15,7 +18,9 @@ data/cache/movies.csv          raw API data (kp_id, title, rating_kp, poster_url
     ↓  kinopois process
 data/cache/movies_clean.csv    cleaned, primary_genre added
     ↓  kinopois run-base-pipeline
-Postgres queue (kinopois_pins) → n8n posts to Pinterest, marks posted
+data/posters_framed/*.jpg      framed poster images (local disk)
+    ↓
+Postgres queue (kinopois_pins) → n8n / autopilot → Pinterest API (base64 upload)
 ```
 
 `export-movie-pins` is still available as an explicit CSV export command, but
@@ -40,7 +45,7 @@ independent — do not mix their output CSVs.
 | `kinopois/publishing/collage_export.py` | `export_pinterest_csv()` + `export_simple_collages_csv()` + `export_summary()` |
 | `kinopois/publishing/pipeline_steps.py` | Composable pipeline: download → process → upload → publish |
 | `kinopois/publishing/postgres_queue.py` | Publish queue (kinopois_pins table) |
-| `kinopois/publishing/pinterest.py` | Direct Pinterest API publish client |
+| `kinopois/publishing/pinterest.py` | Direct Pinterest API publish client (base64 from local files) |
 | `kinopois/publishing/autopilot.py` | Autonomous scheduler |
 | `kinopois/publishing/db.py` | SQLite cache (movies_raw, movies_clean, collages) |
 | `kinopois/publishing/eventlog.py` | JSONL structured event logger |
@@ -73,6 +78,9 @@ uploaded_at; publish_status; published_at; error_reason
   append `primary_genre` again (it's already added to the dict in the loop).
 - Postgres `kinopois_pins` is the single source of truth for publish state.
 - SQLite is a local cache for download/processing data only.
+- `image_url` in Postgres stores **local relative paths** (e.g. `data/posters_framed/11466997.jpg`).
+- `pinterest.py` resolves `image_url` to local files via `_resolve_local_image_path()`
+  and uploads base64 — no public URL needed.
 
 ## Logging
 
@@ -85,22 +93,33 @@ Three parallel logging channels:
 
 ```
 KINOPOISK_API_KEY=          # required for download
-POSTERS_BASE_URL=           # local path prefix for poster images (e.g. data/posters)
-FRAMED_POSTERS_BASE_URL=    # local path prefix for framed posters (e.g. data/posters_framed)
+POSTERS_BASE_URL=           # local path prefix for poster images (default: data/posters)
+FRAMED_POSTERS_BASE_URL=    # local path prefix for framed posters (default: data/posters_framed)
 BOT_URL=                    # Telegram bot URL used in pin descriptions
-PUBLISH_IMAGES_BASE_URL=    # local path prefix for ready-to-publish images (e.g. data/publish/ready)
+PUBLISH_IMAGES_BASE_URL=    # local path prefix for ready-to-publish images (default: data/publish/ready)
+FRAMED_FORCE_REGENERATE=0  # reuse existing framed posters (set 1 to force re-render)
+FRAMED_REFRESH_SOURCE=0    # skip re-downloading clean poster sources
 ```
 
-## Common commands
+All image paths are **local** — no remote server references. Pinterest uses base64 upload from local files.
+
+## Common commands (on server 192.168.10.122)
 
 ```bash
-kinopois run-base-pipeline --limit 200        # full pipeline -> Postgres queue
-kinopois pins --limit 200 --sync-queue        # download + process + export + sync
-kinopois export-movie-pins                    # re-export pins.csv only
-kinopois download --limit 200                 # download only
-kinopois process                              # clean movies.csv
-kinopois queue-ready --limit 5                # show ready jobs as JSON
-kinopois db-stats                             # show queue counts
+cd /home/nick/kinopois && PYTHONPATH=/home/nick/kinopois python3 -m kinopois run-base-pipeline --limit 200
+cd /home/nick/kinopois && PYTHONPATH=/home/nick/kinopois python3 -m kinopois pins --limit 200 --sync-queue
+cd /home/nick/kinopois && PYTHONPATH=/home/nick/kinopois python3 -m kinopois export-movie-pins
+cd /home/nick/kinopois && PYTHONPATH=/home/nick/kinopois python3 -m kinopois download --limit 200
+cd /home/nick/kinopois && PYTHONPATH=/home/nick/kinopois python3 -m kinopois process
+cd /home/nick/kinopois && PYTHONPATH=/home/nick/kinopois python3 -m kinopois queue-ready --limit 5
+cd /home/nick/kinopois && PYTHONPATH=/home/nick/kinopois python3 -m kinopois db-stats
+```
+
+## Cron (21:00 MSK daily)
+
+```bash
+CRON_TZ=Europe/Moscow
+0 21 * * * cd /home/nick/kinopois && PYTHONPATH=/home/nick/kinopois FRAMED_FORCE_REGENERATE=0 FRAMED_REFRESH_SOURCE=0 python3 -m kinopois run-base-pipeline --limit 200 >> /home/nick/kinopois/data/logs/cron.log 2>&1
 ```
 
 ## Coding conventions
@@ -110,3 +129,4 @@ kinopois db-stats                             # show queue counts
 - New CLI commands go in `cli.py` using `@main.command(...)`.
 - All data helpers (`_clean_*`, `_is_*`, `_build_*`) live in `movie_pins.py`.
 - Config is a single dataclass — add new fields as `field(default_factory=lambda: _env_*)`.
+- No remote server dependencies — all image operations are local-first.

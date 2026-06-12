@@ -19,6 +19,17 @@ public_image_url; remote_image_path; vds_upload_status;
 uploaded_at; publish_status; published_at; error_reason
 ```
 
+## Image URL convention
+
+All `image_url` values are **local relative paths** (e.g. `data/posters_framed/11466997.jpg`).
+Pinterest publishing uses base64 upload from local files — no public web URL is needed.
+
+The `pinterest.py` module resolves local files via `_resolve_local_image_path()`:
+1. Extract filename from `image_url`
+2. Search `data/posters_framed/`, `data/posters/`, `data/posters_clean/`
+3. If found → base64 upload to Pinterest API
+4. If not found → falls back to `image_url` as HTTP URL (legacy)
+
 ## Important invariants
 
 - `kp_id` is normalized to a clean integer string
@@ -34,4 +45,15 @@ Key columns for n8n workflow:
 - `vds_upload_status = 'uploaded'` — image has been copied to publish dir
 - `posted = 'TRUE'` — successfully published
 - `pin_id` — Pinterest pin ID after publishing
-- `image_url` — local relative path (e.g. `data/posters_framed/11466997.jpg`); Pinterest uses base64 upload from the local file
+- `image_url` — local relative path (e.g. `data/posters_framed/11466997.jpg`)
+
+## File storage
+
+| Directory | Purpose |
+|-----------|---------|
+| `data/posters/` | Original downloaded posters |
+| `data/posters_framed/` | Framed poster images (Pinterest-ready) |
+| `data/posters_clean/` | Clean posters (no watermark, for re-framing) |
+| `data/publish/ready/` | Copies staged for publishing |
+| `data/collages/` | 2x2 collage images |
+| `data/cache/` | CSV snapshots (movies.csv, movies_clean.csv, pins.csv) |
